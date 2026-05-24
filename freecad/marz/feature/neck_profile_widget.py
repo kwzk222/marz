@@ -21,7 +21,8 @@
 from functools import lru_cache
 from dataclasses import dataclass
 import freecad.marz.extension.fcui as ui
-from freecad.marz.model.parametric_neck_profile import ParametricNeckProfile
+from freecad.marz.model.custom_neck_profile import CustomNeckProfile
+from freecad.marz.extension.fc import App
 
 from freecad.marz.extension.qt import (
     Qt, 
@@ -44,32 +45,20 @@ class NeckProfilePreview:
     translate: QPointF
 
 
-@lru_cache(maxsize=100)
 def get_neck_profile_preview(
-        name: str, 
+        doc,
         width: float, 
         height: float, 
         channel_depth: float, 
         channel_width: float,
         head_channel_depth: float, 
         head_channel_width: float,
-        scale: float,
-        coreWidthRatio: float = 0.6,
-        coreThicknessRatio: float = 0.35,
-        coreOffsetRatio: float = 0.0,
-        radiusTreble: float = 20.0,
-        radiusBass: float = 20.0) -> NeckProfilePreview:
+        scale: float) -> NeckProfilePreview:
     
     """
     Convert OCCT Neck profile geometry to Qt 2D geometry
     """
-    profile = ParametricNeckProfile(
-        coreWidthRatio=coreWidthRatio,
-        coreThicknessRatio=coreThicknessRatio,
-        coreOffsetRatio=coreOffsetRatio,
-        radiusTreble=radiusTreble,
-        radiusBass=radiusBass
-    )
+    profile = CustomNeckProfile(doc=doc)
     wire = profile.wire(width, height)
 
     # Qt coordinates: X:Horizontal(Across), Y:Vertical(Depth)
@@ -121,19 +110,14 @@ def paint_neck_profile(form, painter: QPainter, ch: ui.CanvasHelper):
     scale = min(scale, scale_h) * 0.8
 
     preview = get_neck_profile_preview(
-        "Parametric",
+        form.Object.Document,
         width, 
         height, 
         form.trussRod_depth.value(),
         form.trussRod_width.value(),
         form.trussRod_headDepth.value(),
         form.trussRod_headWidth.value(),
-        scale,
-        form.neck_coreWidthRatio.value(),
-        form.neck_coreThicknessRatio.value(),
-        form.neck_coreOffsetRatio.value(),
-        form.neck_radiusTreble.value(),
-        form.neck_radiusBass.value())
+        scale)
     
     # Center of widget
     painter.translate(ch.event.rect().width()/2.0, ch.event.rect().height()/2.0)

@@ -22,12 +22,12 @@ from __future__ import annotations
 from freecad.marz.model.instrument import Instrument, NeckJoint
 from freecad.marz.model.neck_data import NeckData
 from freecad.marz.model.fretboard_data import FretboardBox, FretboardData
-from freecad.marz.model.parametric_neck_profile import ParametricNeckProfile
+from freecad.marz.model.custom_neck_profile import CustomNeckProfile
 from freecad.marz.model.headstock_builder import getTop, BoundProfile
 from freecad.marz.utils import traced, geom, traceTime
 from freecad.marz.extension.threading import Task, task
 from freecad.marz.extension.fc import App, Vector, Rotation, Placement
-import freecad.marz.curves.gordon as tigl
+
 
 from typing import List, Optional
 import math
@@ -178,7 +178,7 @@ def neck_profiles(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Neck
         length = edge.Length
     else:
         edge = neckd.lineToFret(inst.neck.jointFret).edge()
-        length = edge.Length - abs(inst.neck.transitionLength)
+        length = edge.Length - 0
 
     curve = edge.Curve
     step = length / steps
@@ -187,13 +187,7 @@ def neck_profiles(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Neck
     # Profile is built in XY plane (normal = Vector(0,0,1)).
     # We rotate it to align with the neck's longitudinal direction.
     rot = Rotation(Vector(0, 0, 1), direction)
-    profile = ParametricNeckProfile(
-        coreWidthRatio=neckd.coreWidthRatio,
-        coreThicknessRatio=neckd.coreThicknessRatio,
-        coreOffsetRatio=neckd.coreOffsetRatio,
-        radiusTreble=neckd.radiusTreble,
-        radiusBass=neckd.radiusBass
-    )
+    profile = CustomNeckProfile(doc=inst.doc if hasattr(inst, 'doc') else App.activeDocument())
     thicknessAt = neckd.thicknessAt
     widthAt = neckd.widthAt
     transition_offset = 20.0 # TODO: Bind a parameter
@@ -223,7 +217,7 @@ def neck_profiles(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Neck
 
     # Edge towards heel to force tangency
     if inst.neck.joint != NeckJoint.EXTRA_CHUNK:
-        offset = length + abs(inst.neck.transitionLength) * 0.5
+        offset = length + 0 * 0.5
         control_edge = profile_edge(0, offset, points[0] + direction * offset)
         edges.append(control_edge)
 
@@ -244,7 +238,7 @@ def headstock_end_profile(inst: Instrument, fbd: FretboardData, neckd: NeckData)
     """
     Generate Last profile (Deep U-shape for headstock join)
     """
-    profile = BoundProfile(ParametricNeckProfile(), fbd.widthAt, neckd.thicknessAt)
+    profile = BoundProfile(CustomNeckProfile(doc=inst.doc if hasattr(inst, 'doc') else App.activeDocument()), fbd.widthAt, neckd.thicknessAt)
     line = fbd.neckFrame.midLine
     pos = Vector(line.start.x, line.start.y, 0)
     gross_thickness = inst.headStock.thickness + (0 if inst.headStock.angle > 0 else inst.headStock.depth)
@@ -339,13 +333,7 @@ def volute_cut(inst: Instrument, headstock_transition_wire: Wire, gross_thicknes
 
 @traced("Gordon Neck")
 def gordon_neck(inst: Instrument, fbd: FretboardData, neckd: NeckData):
-    _profile = ParametricNeckProfile(
-        coreWidthRatio=neckd.coreWidthRatio,
-        coreThicknessRatio=neckd.coreThicknessRatio,
-        coreOffsetRatio=neckd.coreOffsetRatio,
-        radiusTreble=neckd.radiusTreble,
-        radiusBass=neckd.radiusBass
-    )
+    _profile = CustomNeckProfile(doc=inst.doc if hasattr(inst, 'doc') else App.activeDocument())
     profile = BoundProfile(_profile, fbd.widthAt, neckd.thicknessAt)
     line = fbd.neckFrame.midLine
     pos = Vector(line.start.x, line.start.y, 0)
@@ -493,9 +481,6 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
         # Task must return NeckBase object directly
         return neck_blank_extra_chunk_impl(inst, fbd, neckd)
 
-    # Heel Profiles
-    heel = heel_profiles(inst, fbd, neckd)
-
     # Barrel profiles
     profiles = neck_profiles(inst, fbd, neckd)
 
@@ -504,7 +489,7 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
     if inst.headStock.angle > 0.5:
         headstock = apply_headstock_angle(headstock, inst.headStock.angle, fbd)
 
-    raw_profiles = (headstock, *profiles.edges, *heel.edges)
+    raw_profiles = (headstock, *profiles.edges)
 
     # Re-parameterize profiles to make it smooth
     all_profiles = []
@@ -549,20 +534,7 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
         solid = None
         face_gordon = None
 
-        if not getattr(inst.neck, 'useGordonSurface', False):
-            # Gordon Surface is disabled (default), skip to loft fallback
-            face_gordon = None
-        else:
-            try:
-                App.Console.PrintMessage("[MARZ] Starting Gordon Surface Interpolation...\n")
-                gordon = tigl.InterpolateCurveNetwork(prof_curves, guide_curves, tol_3d, tol_2d)
-                gordon.max_ctrl_pts = 100
-                face_gordon = gordon.surface().toShape()
-                del(gordon)
-                App.Console.PrintMessage("[MARZ] Gordon Surface Interpolation Done.\n")
-            except Exception as e:
-                App.Console.PrintError(f"[MARZ] Gordon Surface Failed: {str(e)}\n")
-                pass
+        face_gordon = None
 
         if face_gordon and not face_gordon.isNull():
             # Robust boundary extraction
@@ -619,24 +591,8 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
             closed_profiles = [Wire([e, LineSegment(e.valueAt(e.LastParameter), e.valueAt(e.FirstParameter)).toShape()]) for e in profiles_edges]
             solid = Part.makeLoft(closed_profiles, True, True)
 
-    # Cut the excess part of the heel
-    try:
-        pnt = heel.edges[-1].valueAt(heel.edges[-1].FirstParameter)
-        cut_plane_size = 500.0
-        pnt.y = -cut_plane_size/2
-        pnt.x -= 20
-        pnt.z = -inst.body.neckPocketDepth - inst.neck.topOffset
-        plane = Part.makePlane(cut_plane_size, cut_plane_size, pnt, Vector(0,0,1), Vector(1,0,0))
-        res = split_api.slice(solid, [plane], 'CompSolid')
-        part = None
-        if res and hasattr(res, 'Solids') and len(res.Solids) > 0:
-            part = geom.query_one(res.Solids, order_by=lambda s: -s.CenterOfMass.z)
-
-        if part is None or part.isNull():
-            part = solid
-    except Exception:
-        part = solid
-
+    part = solid
+    heel = HeelProfiles([], profiles.edges[-1])
     return NeckBase(heel, profiles, part)
 
 def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> NeckBase:
@@ -690,17 +646,7 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
     neck_solid = None
     face_gordon = None
 
-    if getattr(inst.neck, 'useGordonSurface', False):
-        try:
-            App.Console.PrintMessage("[MARZ] Starting Gordon Surface Interpolation (Extra Chunk)...\n")
-            gordon = tigl.InterpolateCurveNetwork(prof_curves, guide_curves, tol_3d, tol_2d)
-            gordon.max_ctrl_pts = 100
-            face_gordon = gordon.surface().toShape()
-            del(gordon)
-            App.Console.PrintMessage("[MARZ] Gordon Surface Interpolation Done.\n")
-        except Exception as e:
-            App.Console.PrintError(f"[MARZ] Gordon Surface Failed: {str(e)}\n")
-            pass
+    face_gordon = None
 
     if face_gordon and not face_gordon.isNull():
         # Robust boundary extraction

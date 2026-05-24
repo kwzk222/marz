@@ -40,8 +40,10 @@ from freecad.marz.extension.qt import QRect, QApplication
 from freecad.marz.feature.document import (
     BodyImports, 
     HeadstockImports,
+    NeckProfileImports,
     File_Svg_Body,
     File_Svg_Headstock,
+    File_Svg_NeckProfileContour,
     File_Svg_Fret_Inlays)
 from freecad.marz.utils import randomString
 
@@ -184,10 +186,17 @@ class InstrumentForm(InstrumentFormBase):
             lambda name: import_custom_shapes(self.Object.Document, name, BodyImports, progress_listener=self.progress), 
             self.body_svg)
 
+
+    def neck_svg_imported(self, *args):
+        self.neck_profile_preview.update()
+        self.check_custom_shapes()
+        self.save_model()
+
     def import_headstock(self):
         self.import_svg(
             tr(f'Import a custom headstock shape'),
-            lambda name: import_custom_shapes(self.Object.Document, name, HeadstockImports, progress_listener=self.progress), 
+            lambda name: import_custom_shapes(self.Object.Document, name, HeadstockImports,
+progress_listener=self.progress),
             self.headstock_svg)
 
     def import_inlays(self):
@@ -211,6 +220,14 @@ class InstrumentForm(InstrumentFormBase):
                 except:
                     self.message_err(tr("Error exporting this file"))
 
+    def import_neck(self):
+        self.import_svg(
+            tr('Import custom neck profile shape'),
+            lambda name: import_custom_shapes(self.Object.Document, name, NeckProfileImports, progress_listener=self.progress),
+            self.neck_svg)
+
+    def export_neck(self):
+        self.export_doc_file(tr("Export original neck profile svg file"), File_Svg_NeckProfileContour)
     def export_body(self):
         self.export_doc_file(tr("Export original body svg file"), File_Svg_Body)
 
@@ -287,6 +304,7 @@ class InstrumentForm(InstrumentFormBase):
     @timer(interval=200)
     def checks(self):
         self.body_svg.set_export_enable(File_Svg_Body.exists())
+        self.neck_svg.set_export_enable(File_Svg_NeckProfileContour.exists())
         self.headstock_svg.set_export_enable(File_Svg_Headstock.exists())
         self.inlays_svg.set_export_enable(File_Svg_Fret_Inlays.exists())
 
