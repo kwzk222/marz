@@ -195,8 +195,7 @@ class InstrumentForm(InstrumentFormBase):
     def import_headstock(self):
         self.import_svg(
             tr(f'Import a custom headstock shape'),
-            lambda name: import_custom_shapes(self.Object.Document, name, HeadstockImports,
-progress_listener=self.progress),
+            lambda name: import_custom_shapes(self.Object.Document, name, HeadstockImports, progress_listener=self.progress),
             self.headstock_svg)
 
     def import_inlays(self):

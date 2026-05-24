@@ -143,6 +143,7 @@ class InstrumentFormBase:
     inlays_svg: ImportSvgWidget = None
     headstock_svg: ImportSvgWidget = None
     body_svg: ImportSvgWidget = None
+    neck_svg: ImportSvgWidget = None
 
     # Logging
     log = None

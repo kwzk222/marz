@@ -35,7 +35,7 @@ from freecad.marz.feature.preferences import pref_current_tab
 from freecad.marz.extension.version import FreecadVersion, Version
 from freecad.marz import __dep_min_freecad__
 
-from freecad.marz.feature.document import File_Svg_Body, File_Svg_Headstock, File_Svg_Fret_Inlays
+from freecad.marz.feature.document import File_Svg_Body, File_Svg_Headstock, File_Svg_Fret_Inlays, File_Svg_NeckProfileContour
 
 from freecad.marz.feature.neck_profile_widget import NeckProfileWidget
 from freecad.marz.feature.edit_form_base import InstrumentFormBase
@@ -269,25 +269,15 @@ def neck_joint(form):
 # ────────────────────────────────────────────────────────────────────────────
 def neck_profile(form):
     with ui.Section(SectionHeader(tr('Profile'))):
-        ui.TextLabel(tr("Parametric"))
-
-        form.neck_coreWidthRatio = ui.InputFloat(label=tr('Core Width Ratio'), suffix='', decimals=2, step=0.01)
-        form.neck_coreThicknessRatio = ui.InputFloat(label=tr('Core Thickness Ratio'), suffix='', decimals=2, step=0.01)
-        form.neck_coreOffsetRatio = ui.InputFloat(label=tr('Core Offset Ratio'), suffix='', decimals=2, step=0.01)
-        form.neck_radiusTreble = InputFloat(label=tr('Radius Treble'))
-        form.neck_radiusBass = InputFloat(label=tr('Radius Bass'))
-        form.neck_use_gordon_surface = ui.InputOptions(label=tr('Use Gordon Surface'), options={"Enabled": True, "Disabled": False})
+        form.neck_svg = ImportSvgWidget(
+            form,
+            tr('Custom shape (imported)'),
+            file=File_Svg_NeckProfileContour,
+            import_action=form.import_neck,
+            export_action=form.export_neck)
 
     with ui.Section(SectionHeader(tr('Section at fret 0'))):
         form.neck_profile_preview = NeckProfileWidget(form, width=300, height=170)
-
-
-# ────────────────────────────────────────────────────────────────────────────
-def neck_transition(form):
-    with ui.Section(SectionHeader(tr('Transition Heel-Neck'))):
-        form.neck_transitionLength = InputFloat(label=tr('Transition length'))
-        form.neck_transitionTension = InputFloat(label=tr('Transition tension'))
-
 
 # ────────────────────────────────────────────────────────────────────────────
 def tab_neck(form):
@@ -297,7 +287,6 @@ def tab_neck(form):
                 neck_thickness(form)
                 neck_heel(form)
                 neck_joint(form)
-                neck_transition(form)
                 neck_truss_rod(form)
             with ui.GroupBox():
                 neck_profile(form)
@@ -436,11 +425,7 @@ def build(form: InstrumentFormBase):
         form.trussRod_width.valueChanged,
         form.nut_width.valueChanged,
         form.neck_startThickness.valueChanged,
-        form.neck_coreWidthRatio.valueChanged,
-        form.neck_coreThicknessRatio.valueChanged,
-        form.neck_coreOffsetRatio.valueChanged,
-        form.neck_radiusTreble.valueChanged,
-        form.neck_radiusBass.valueChanged))
+        form.neck_endThickness.valueChanged))
     def neck_profile_changed(*args, **kwargs):
         form.neck_profile_preview.update()
 

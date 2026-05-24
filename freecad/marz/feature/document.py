@@ -49,6 +49,7 @@ BodyErgoCutsTop     = PartFeature('Marz_Body_ErgoCutsTop',     'Ergonomic Cutawa
 BodyErgoCutsBack    = PartFeature('Marz_Body_ErgoCutsBack',    'Ergonomic Cutaways Back',style, Group_Imports)
 FretInlays          = PartFeature('Marz_FInlay_Fret',          'Fret',                   style, Group_Imports)
 HeadstockPockets    = PartFeature('Marz_Headstock_Pockets',    'Headstock Pockets',      style, Group_Imports)
+NeckProfileContour    = PartFeature('Marz_NeckProfile_Contour',    'Neck Profile Contour',      style, Group_Imports)
 HeadstockContour    = PartFeature('Marz_Headstock_Contour',    'Headstock Contour',      style, Group_Imports)
 HeadstockTransition = PartFeature('Marz_Headstock_Transition', 'Headstock Transition',   style, Group_Imports)
 
@@ -100,6 +101,11 @@ File_Svg_Body = InternalFile(
     content_type="image/svg",
     description="Imported Body (svg)")
 
+File_Svg_NeckProfileContour = InternalFile(
+    name="NeckProfile_Import",
+    content_type="image/svg",
+    description="Imported Neck Profile (svg)")
+
 File_Svg_Headstock = InternalFile(
     name="Headstock_Import",
     content_type="image/svg",
@@ -124,6 +130,17 @@ BodyImports = ImportTarget(
     BodyContour, 
     BridgeRef, 
     Body2DDraft, 
+    None)
+
+NeckProfileImports = ImportTarget(
+    File_Svg_NeckProfileContour,
+    'Internal_NeckProfileImport',
+    None,
+    None,
+    None,
+    NeckProfileContour,
+    None,
+    None,
     None)
 
 HeadstockImports = ImportTarget(
