@@ -1,0 +1,168 @@
+<html>
+    <style>
+        a {
+            color: #325ca1;
+            text-decoration: none;
+        }
+        .dep-supported {
+            color: green;
+            font-weight: normal;
+        }
+        .dep-unsupported {
+            color: red;
+            font-weight: bold;
+        }
+        table.env-table td, table.env-table th {
+            color: #333333;
+            border: 1px solid #c0c0c0;
+            font-size: 12pt;
+            font-weight: normal;
+            padding: 5px;
+            text-align: left;
+        }
+        table.env-table {
+            width: 99%;
+            border-collapse: collapse;
+        }
+        table.env-table th {
+            background-color: #e0e0e0;;
+        }
+        table.examples {
+            width: 99%;
+            margin: 10px;
+            border-collapse: separate;
+        }
+        table.examples img {
+            margin-top: 5px;
+        }
+        table.examples td {
+            padding: 4px;
+            border: 1px solid #c0c0c0;
+            border-radius: 5px;
+            background-color: #e0e0e0;
+            text-align: center;
+        }
+    </style>
+
+    <h1>Examples</h1>
+    <table class="examples" cellspacing="10">
+        <tr>
+            <td>
+                <a href="open:Blackmachine_B6/cad.FCStd">
+                    <p>Black Machine B6</p>
+                    <p>
+                        <img src="{{__base__}}/examples/Blackmachine_B6/preview.png" width="200" />
+                    </p>
+                </a>
+            </td>
+            <td>
+                <a href="open:RedSpecial/cad.FCStd">
+                    <p>Red Special</p>
+                    <p>
+                        <img src="{{__base__}}/examples/RedSpecial/preview.png" width="200" />
+                    </p>
+                </a>
+            </td>
+        </tr><tr>
+            <td>
+                <a href="open:LesPaul/cad.FCStd">
+                    <p>Les Paul</p>
+                    <p>
+                        <img src="{{__base__}}/examples/LesPaul/preview.png" width="200" />
+                    </p>
+                </a>
+            </td>
+            <td>
+                <a href="open:Headless/cad.FCStd">
+                    <p>Headless</p>
+                    <p>
+                        <img src="{{__base__}}/examples/Headless/preview.png" width="200" />
+                    </p>
+                </a>
+            </td>
+        </tr>
+    </table>
+
+
+    <h1>Inkscape Extension</h1>
+    <p>
+        There is an optional Inkscape extension available to help in setting up
+        the svg files before importing them:
+        <ul>
+            <li><a href="download:inkscape/marz/marz.zip">Download here</a></li>
+            <li>Install it in Inkscape: Extensions/Manage Extensions.../Install packages/Install package</li>
+            <li>Once installed, access it in Extensions/FreeCAD/Marz Guitars Selector...</li>
+        </ul>
+    </p>
+
+
+    <h1>Official Repository</h1>
+    <p>
+        Github: <a href="https://github.com/mnesarco/MarzWorkbench/">https://github.com/mnesarco/MarzWorkbench</a>
+    </p>
+
+    <h3>Local Environment</h3>
+    <table class="env-table" width="100%">
+        <tr>
+            <th>Dependency</th>
+            <th>Installed Version</th>
+            <th>Support</th>
+        </tr>
+        <tr>
+            <td>Marz Workbench</td>
+            <td>{{version}}</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>FreeCAD</td>
+            <td>{{freecad_version}}</td>
+            <td>{{freecad_supported}}</td>
+        </tr>
+    </table>
+
+
+    <br />
+    <h1>Help</h1>
+
+    <h3>FreeCAD Forum</h3>
+    <ul>
+        <li>
+            <a href="https://forum.freecad.org/viewtopic.php?t=44928">https://forum.freecad.org/viewtopic.php?t=44928</a>
+        </li>
+    </ul>
+
+
+    <h3>Youtube channel</h3>
+    <ul>
+        <li>
+            <a href="https://www.youtube.com/@mnesarcox">https://www.youtube.com/@mnesarcox</a>
+        </li>
+    </ul>
+
+    <h3>Wiki</h3>
+    <p>
+        <ul>
+            <li><a href="https://github.com/mnesarco/MarzWorkbench/wiki">https://github.com/mnesarco/MarzWorkbench/wiki</a></li>
+            <li><a href="https://github.com/mnesarco/MarzWorkbench/wiki/Custom-Shapes">https://github.com/mnesarco/MarzWorkbench/wiki/Custom-Shapes</a></li>
+        </ul>
+    </p>
+
+    <h3>Bug tracking</h3>
+    <ul>
+        <li>
+            <a href="https://github.com/mnesarco/MarzWorkbench/issues">https://github.com/mnesarco/MarzWorkbench/issues</a>
+        </li>
+    </ul>
+
+
+    <br />
+    <h2>Operating system support</h2>
+    <p>
+        Any OS supported by the current version of FreeCAD should work,<br />
+        but in case of issues related to the OS, <b>Linux</b> has first<br />
+        class support and issues will be resolved there first. Issues<br />
+        specifically related to <b>Mac</b> or <b>Windows</b> has second<br />
+        class support and has lower priority.<br />
+    </p>
+
+</html>

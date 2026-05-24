@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="64"
+   height="64"
+   version="1.1"
+   id="bodu"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <path
+     style="display:inline;fill:#fcaf3e;fill-opacity:1;stroke:#fcaf3e;stroke-width:3.24852;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     d="m 45.431909,24.23525 -5.306668,-5.057148 7.026406,-6.944638 C 44.659245,2.5717231 34.819755,1.4769129 31.068815,12.4677 27.858781,18.673272 19.506279,15.049417 14.232436,17.857002 -4.7531828,28.679701 7.8261775,50.841468 22.45702,57.462081 c 6.937941,3.10235 16.578073,3.034462 21.521763,-4.420274 3.852801,-5.091035 2.684005,-14.501813 5.54132,-19.99303 3.321052,-6.382401 9.692988,-3.720444 9.855644,-9.791797 -5.898372,0.106843 -7.530614,-1.544526 -9.886386,-3.456917 z"
+     id="path847" />
+</svg>

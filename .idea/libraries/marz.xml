@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="marz">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/Resources/inkscape/marz/marz.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
