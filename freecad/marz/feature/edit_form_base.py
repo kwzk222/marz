@@ -47,15 +47,6 @@ class InstrumentFormBase:
     neck_tenonThickness: ValueInput = None  # int (0)
     neck_tenonLength: ValueInput = None  # int (0)
     neck_tenonOffset: ValueInput = None  # int (0)
-    neck_profile: ValueInput = None  # str (Parametric)
-    neck_coreWidthRatio: ValueInput = None
-    neck_coreThicknessRatio: ValueInput = None
-    neck_coreOffsetRatio: ValueInput = None
-    neck_radiusTreble: ValueInput = None
-    neck_radiusBass: ValueInput = None
-    neck_use_gordon_surface: ValueInput = None # bool
-    neck_transitionLength: ValueInput = None  # int (50)
-    neck_transitionTension: ValueInput = None  # int (35)
     # neck_transitionFunction: ValueInput = None  # TransitionFunction (TransitionFunction.CATENARY)
     neck_heelFillet: ValueInput = None  # float (1.0)
     neck_heelOffset: ValueInput = None  # float (0.0)
