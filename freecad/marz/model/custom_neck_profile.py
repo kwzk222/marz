@@ -32,43 +32,36 @@ class CustomNeckProfile:
         else:
             return self._high_stability_fallback(width, height, True)
 
+
+
     def _scale_shape(self, width, height):
-        """Scales the SVG shape to the desired width and height"""
-        bbox = self.shape.BoundBox
-        svg_width = bbox.XMax - bbox.XMin
-        svg_height = bbox.YMax - bbox.YMin
-
-        if svg_width < 1e-5 or svg_height < 1e-5:
-            return self._high_stability_fallback(width, height, True)
-
-        scale_x = width / svg_width
-        scale_y = height / svg_height
-
-        # We want to map SVG X to Lateral (Y) and SVG Y to Depth (X)
-        # Also need to center Lateral (Y) and set top of Depth (X) to 0
-
-        matrix = App.Matrix()
-
-        # Scale
-        matrix.scale(scale_x, scale_y, 1.0)
-
-        scaled_shape = self.shape.copy()
-        scaled_shape.transformShape(matrix)
-
-        scaled_bbox = scaled_shape.BoundBox
-
-        # Center X and set Y max to 0
-        trans_x = -(scaled_bbox.XMax + scaled_bbox.XMin) / 2.0
-        trans_y = -scaled_bbox.YMax
-
-        scaled_shape.translate(Vector(trans_x, trans_y, 0))
-
-        # Map to X:Depth, Y:Lateral
-        # Current: X is Lateral, Y is Depth
-        # Rotate 90 degrees around Z axis? No, just map coordinates.
-        # Actually, let's discretize and build a new wire to ensure closed and correctly oriented.
-
+        """Scales the SVG shape to exactly match the desired width and height"""
         try:
+            bbox = self.shape.BoundBox
+            svg_width = bbox.XMax - bbox.XMin
+            svg_height = bbox.YMax - bbox.YMin
+
+            if svg_width < 1e-5 or svg_height < 1e-5:
+                return self._high_stability_fallback(width, height, True)
+
+            # Map X=Lateral, Y=Depth
+            scale_x = width / svg_width
+            scale_y = height / svg_height
+
+            matrix = App.Matrix()
+            matrix.scale(scale_x, scale_y, 1.0)
+
+            scaled_shape = self.shape.copy()
+            scaled_shape.transformShape(matrix)
+
+            scaled_bbox = scaled_shape.BoundBox
+
+            # Center X (Lateral) exactly around 0, and align Y (Depth) max to 0
+            trans_x = -(scaled_bbox.XMax + scaled_bbox.XMin) / 2.0
+            trans_y = -scaled_bbox.YMax
+
+            scaled_shape.translate(Vector(trans_x, trans_y, 0))
+
             edges = scaled_shape.Edges
             if not edges:
                 return self._high_stability_fallback(width, height, True)
@@ -76,18 +69,34 @@ class CustomNeckProfile:
             all_pts = []
             for edge in edges:
                 pts = edge.discretize(Number=20)
-                # Swap X and Y, and invert X (depth is negative X)
-                # Original: X=Lateral, Y=Depth (negative)
-                # New: X=Depth (Y), Y=Lateral (X)
+                # Ensure the points are mapped to X:Depth, Y:Lateral
+                # Original SVG: X is Lateral (scaled by width), Y is Depth (scaled by height)
+                # We need X to be Depth (negative values down to -height)
+                # We need Y to be Lateral (from -width/2 to width/2)
+                # Since we scaled and translated:
+                # p.x is Lateral, ranging exactly from -width/2 to width/2
+                # p.y is Depth, ranging exactly from -height to 0
                 mapped_pts = [Vector(p.y, p.x, 0) for p in pts]
                 if not all_pts:
                     all_pts.extend(mapped_pts)
                 else:
                     all_pts.extend(mapped_pts[1:])
 
-            # Close the wire with a straight line if needed
-            # We don't close the B-spline here if it's an open U-shape.
-            # Instead we find the extremes and explicitly add a straight line.
+            # Ensure extremes are EXACTLY bound to width and height to avoid floating point errors
+            for i, p in enumerate(all_pts):
+                new_x = p.x
+                new_y = p.y
+                # Lateral bounds (Y axis)
+                if new_y < -width / 2.0:
+                    new_y = -width / 2.0
+                elif new_y > width / 2.0:
+                    new_y = width / 2.0
+                # Depth bounds (X axis)
+                if new_x < -height:
+                    new_x = -height
+                elif new_x > 0:
+                    new_x = 0.0
+                all_pts[i] = Vector(new_x, new_y, 0)
 
             # Filter duplicates
             pts = [all_pts[0]]
@@ -99,19 +108,36 @@ class CustomNeckProfile:
             bsp.interpolate(pts)
             curve = bsp.toShape()
 
+
             p_start = curve.valueAt(curve.FirstParameter)
             p_end = curve.valueAt(curve.LastParameter)
 
-            if (p_start - p_end).Length > 1e-4:
-                top_line = Part.LineSegment(p_end, p_start).toShape()
-                try:
-                    return Part.Wire([curve, top_line])
-                except:
-                    return Part.Wire([curve])
-            else:
+            # Close the wire exactly at X=0 (Depth=0)
+            # Create vertical line segments to X=0 if the curve doesn't reach exactly X=0
+            segments = [curve]
+
+            p_start_top = Vector(0, p_start.y, 0)
+            p_end_top = Vector(0, p_end.y, 0)
+
+            # Since p_end is the end of the curve, we go from p_end up to p_end_top
+            if (p_end - p_end_top).Length > 1e-4:
+                segments.append(Part.LineSegment(p_end, p_end_top).toShape())
+
+            # Then across the top
+            if (p_end_top - p_start_top).Length > 1e-4:
+                segments.append(Part.LineSegment(p_end_top, p_start_top).toShape())
+
+            # Then back down to the start of the curve
+            if (p_start_top - p_start).Length > 1e-4:
+                segments.append(Part.LineSegment(p_start_top, p_start).toShape())
+
+            try:
+                return Part.Wire(segments)
+            except:
                 return Part.Wire([curve])
 
         except Exception:
+
             return self._high_stability_fallback(width, height, True)
 
     def __call__(self, width, height, wire=True):

@@ -192,7 +192,7 @@ def get_is_zero_fret(obj):
 class Neck(Feature):
     def __init__(self, instrument, joint=NeckJoint.THROUGH, startThickness=15,
                  endThickness=17, jointFret=16, topOffset=0, angle=3, tenonThickness=10,
-                 tenonLength=10, tenonOffset=2, profile="Custom",
+                 tenonLength=10, tenonOffset=2,
                  heelFillet=1.0, heelOffset=0.0,
                  extraChunkLength=100.0, extraChunkVerticalOffset=0.0, extraChunkDepthOffset=0.0,
                  extraChunkThickness=15.0, extraChunkVerticalThickness=30.0):
@@ -206,7 +206,6 @@ class Neck(Feature):
         self.tenonThickness = tenonThickness
         self.tenonLength = tenonLength
         self.tenonOffset = tenonOffset
-        self.profile = profile
         self.heelFillet = heelFillet
         self.heelOffset = heelOffset
         self.extraChunkLength = extraChunkLength

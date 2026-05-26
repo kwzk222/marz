@@ -217,7 +217,7 @@ def neck_profiles(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Neck
 
     # Edge towards heel to force tangency
     if inst.neck.joint != NeckJoint.EXTRA_CHUNK:
-        offset = length + abs(inst.neck.transitionLength) * 0.5
+        offset = length + 10.0
         control_edge = profile_edge(0, offset, points[0] + direction * offset)
         edges.append(control_edge)
 

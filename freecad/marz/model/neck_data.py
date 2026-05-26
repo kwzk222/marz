@@ -32,10 +32,7 @@ class NeckData(object):
     # ! this object will be cached as a hash calculated on creation,
     # ! so two instances created with same data will hit the same
     # ! cache entry.
-    __slots__ = ['fbd', 'thicknessSlope', 'startThickness', '_ihash', 'profileName',
-                 'coreWidthRatio', 'coreThicknessRatio', 'coreOffsetRatio',
-                 'radiusTreble', 'radiusBass',
-                 'transitionFunction', 'transitionLength', 'transitionTension']
+    __slots__ = ['fbd', 'thicknessSlope', 'startThickness', '_ihash']
 
     def __init__(self, inst, fbd):
         # Calculations
@@ -43,32 +40,14 @@ class NeckData(object):
         thicknessSlope = (inst.neck.endThickness - startThickness) / (inst.scale.avg / 2)
 
         # Neck Profile
-        profileName = inst.neck.profile
-        coreWidthRatio = inst.neck.coreWidthRatio
-        coreThicknessRatio = inst.neck.coreThicknessRatio
-        coreOffsetRatio = inst.neck.coreOffsetRatio
-        radiusTreble = inst.neck.radiusTreble
-        radiusBass = inst.neck.radiusBass
 
         # Set immutable values
-        super().__setattr__('profileName', profileName)
         super().__setattr__('thicknessSlope', thicknessSlope)
         super().__setattr__('startThickness', startThickness)
-        super().__setattr__('coreWidthRatio', coreWidthRatio)
-        super().__setattr__('coreThicknessRatio', coreThicknessRatio)
-        super().__setattr__('coreOffsetRatio', coreOffsetRatio)
-        super().__setattr__('radiusTreble', radiusTreble)
-        super().__setattr__('radiusBass', radiusBass)
-        super().__setattr__('transitionLength', inst.neck.transitionLength)
-        super().__setattr__('transitionTension', inst.neck.transitionTension)
-        super().__setattr__('transitionFunction', inst.neck.transitionFunction)
         super().__setattr__('fbd', fbd)
 
         # Calculate immutable hash
-        ihash = hash((thicknessSlope, startThickness, fbd, profileName,
-                      coreWidthRatio, coreThicknessRatio, coreOffsetRatio,
-                      radiusTreble, radiusBass,
-                      inst.neck.transitionLength, inst.neck.transitionTension, inst.neck.transitionFunction))
+        ihash = hash((thicknessSlope, startThickness, fbd, ))
         super().__setattr__('_ihash', ihash)
 
     def __setattr__(self, name, value):
@@ -80,14 +59,6 @@ class NeckData(object):
     def __eq__(self, other):
         return (self.thicknessSlope == other.thicknessSlope
                 and self.startThickness == other.startThickness
-                and self.coreWidthRatio == other.coreWidthRatio
-                and self.coreThicknessRatio == other.coreThicknessRatio
-                and self.coreOffsetRatio == other.coreOffsetRatio
-                and self.radiusTreble == other.radiusTreble
-                and self.radiusBass == other.radiusBass
-                and self.transitionLength == other.transitionLength
-                and self.transitionTension == other.transitionTension
-                and self.transitionFunction == other.transitionFunction
                 and self.fbd == other.fbd)
 
     def widthAt(self, dist):
