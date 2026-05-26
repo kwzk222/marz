@@ -324,6 +324,7 @@ class InternalProps(Feature):
         self.bodyImport = 0
         self.headstockImport = 0
         self.inlayImport = 0
+        self.neckProfileImport = 0
 
 class AutoUpdate(Feature):
     def __init__(self, instrument):

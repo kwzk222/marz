@@ -178,7 +178,7 @@ def neck_profiles(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Neck
         length = edge.Length
     else:
         edge = neckd.lineToFret(inst.neck.jointFret).edge()
-        length = edge.Length - 0
+        length = edge.Length
 
     curve = edge.Curve
     step = length / steps
@@ -217,7 +217,7 @@ def neck_profiles(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Neck
 
     # Edge towards heel to force tangency
     if inst.neck.joint != NeckJoint.EXTRA_CHUNK:
-        offset = length + 0 * 0.5
+        offset = length + abs(inst.neck.transitionLength) * 0.5
         control_edge = profile_edge(0, offset, points[0] + direction * offset)
         edges.append(control_edge)
 
@@ -353,7 +353,7 @@ def gordon_neck(inst: Instrument, fbd: FretboardData, neckd: NeckData):
         headstock_data = t_headstock()
 
         # Ensure solids are valid before fusion
-        blank_solid = blank_data.solid if blank_data and not blank_data.solid.isNull() and blank_data.solid.isValid() else None
+        blank_solid = blank_data.solid if blank_data and blank_data.solid and not blank_data.solid.isNull() and blank_data.solid.isValid() else None
         headstock_solid = headstock_data.solid if headstock_data and not headstock_data.solid.isNull() and headstock_data.solid.isValid() else None
 
         if blank_solid and headstock_solid:
@@ -481,6 +481,9 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
         # Task must return NeckBase object directly
         return neck_blank_extra_chunk_impl(inst, fbd, neckd)
 
+    # Heel Profiles
+    heel = heel_profiles(inst, fbd, neckd)
+
     # Barrel profiles
     profiles = neck_profiles(inst, fbd, neckd)
 
@@ -489,7 +492,7 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
     if inst.headStock.angle > 0.5:
         headstock = apply_headstock_angle(headstock, inst.headStock.angle, fbd)
 
-    raw_profiles = (headstock, *profiles.edges)
+    raw_profiles = (headstock, *profiles.edges, *heel.edges)
 
     # Re-parameterize profiles to make it smooth
     all_profiles = []
@@ -588,11 +591,48 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
 
         if solid is None or solid.isNull():
             # Final fallback: Loft ensures the neck always has volume
-            closed_profiles = [Wire([e, LineSegment(e.valueAt(e.LastParameter), e.valueAt(e.FirstParameter)).toShape()]) for e in profiles_edges]
-            solid = Part.makeLoft(closed_profiles, True, True)
+            closed_profiles = []
+            for e in profiles_edges:
+                p1 = e.valueAt(e.FirstParameter)
+                p2 = e.valueAt(e.LastParameter)
+                if (p1 - p2).Length > 1e-4:
+                    line = Part.LineSegment(p2, p1).toShape()
+                    try:
+                        closed_profiles.append(Part.Wire([e, line]))
+                    except Exception:
+                        closed_profiles.append(Part.Wire([e]))
+                else:
+                    try:
+                        closed_profiles.append(Part.Wire([e]))
+                    except Exception:
+                        pass
 
-    part = solid
-    heel = HeelProfiles([], profiles.edges[-1])
+            try:
+                solid = Part.makeLoft(closed_profiles, True, True)
+            except Exception:
+                try:
+                    solid = Part.makeLoft(closed_profiles, True, False)
+                except Exception:
+                    solid = None
+
+    # Cut the excess part of the heel
+    try:
+        pnt = heel.edges[-1].valueAt(heel.edges[-1].FirstParameter)
+        cut_plane_size = 500.0
+        pnt.y = -cut_plane_size/2
+        pnt.x -= 20
+        pnt.z = -inst.body.neckPocketDepth - inst.neck.topOffset
+        plane = Part.makePlane(cut_plane_size, cut_plane_size, pnt, Vector(0,0,1), Vector(1,0,0))
+        res = split_api.slice(solid, [plane], 'CompSolid')
+        part = None
+        if res and hasattr(res, 'Solids') and len(res.Solids) > 0:
+            part = geom.query_one(res.Solids, order_by=lambda s: -s.CenterOfMass.z)
+
+        if part is None or part.isNull():
+            part = solid
+    except Exception:
+        part = solid
+
     return NeckBase(heel, profiles, part)
 
 def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> NeckBase:
@@ -692,8 +732,29 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
             neck_solid = None
 
     if neck_solid is None or neck_solid.isNull():
-        closed_profiles = [Wire([e, LineSegment(e.valueAt(e.LastParameter), e.valueAt(e.FirstParameter)).toShape()]) for e in profiles_edges]
-        neck_solid = Part.makeLoft(closed_profiles, True, True)
+        closed_profiles = []
+        for e in profiles_edges:
+            p1 = e.valueAt(e.FirstParameter)
+            p2 = e.valueAt(e.LastParameter)
+            if (p1 - p2).Length > 1e-4:
+                line = Part.LineSegment(p2, p1).toShape()
+                try:
+                    closed_profiles.append(Part.Wire([e, line]))
+                except Exception:
+                    closed_profiles.append(Part.Wire([e]))
+            else:
+                try:
+                    closed_profiles.append(Part.Wire([e]))
+                except Exception:
+                    pass
+
+        try:
+            neck_solid = Part.makeLoft(closed_profiles, True, True)
+        except Exception:
+            try:
+                neck_solid = Part.makeLoft(closed_profiles, True, False)
+            except Exception:
+                neck_solid = None
 
     # Create Extra Chunk
     # Use dimensions at the end of the fretboard (physical wood end)

@@ -25,7 +25,6 @@ from freecad.marz.extension.lang import tr
 from freecad.marz.feature.import_svg_widget import ImportSvgWidget
 from freecad.marz.feature.progress import ProgressListener
 from freecad.marz.model.instrument import NeckJoint, NutPosition, NutSpacing
-from freecad.marz.model.neck_profile import NeckProfile
 from freecad.marz.extension.paths import graphicsPath, resourcePath
 from freecad.marz import __version__, __license__, __copyright__
 from freecad.marz.feature.style import (

@@ -18,7 +18,6 @@
 # |  along with Marz Workbench.  If not, see <https://www.gnu.org/licenses/>. |
 # +---------------------------------------------------------------------------+
 
-from freecad.marz.model.neck_profile import NeckProfile
 from freecad.marz.model.instrument import NeckJoint, NutPosition, NutSpacing, inch_to_mm
 from freecad.marz.extension.properties import FreecadPropertiesHelper, FreecadPropertyHelper as fcp
 from freecad.marz.model.transitions import TransitionFunction

@@ -86,8 +86,8 @@ class CustomNeckProfile:
                     all_pts.extend(mapped_pts[1:])
 
             # Close the wire with a straight line if needed
-            if (all_pts[0] - all_pts[-1]).Length > 1e-5:
-                all_pts.append(all_pts[0])
+            # We don't close the B-spline here if it's an open U-shape.
+            # Instead we find the extremes and explicitly add a straight line.
 
             # Filter duplicates
             pts = [all_pts[0]]
@@ -99,24 +99,16 @@ class CustomNeckProfile:
             bsp.interpolate(pts)
             curve = bsp.toShape()
 
-            # The top straight edge might be missing or distorted, so let's enforce a top line
-            # Wait, the user draws a profile, we should just use their curve.
-            # But we need a closed wire for lofting.
-            # If the SVG is already a closed loop (e.g. D shape), great.
-            # If it's just the bottom curve (U shape), we need to close it with a top line.
+            p_start = curve.valueAt(curve.FirstParameter)
+            p_end = curve.valueAt(curve.LastParameter)
 
-            # For simplicity, let's assume it's just the curve and we close it.
-            # Find the extremes in Lateral (Y)
-            min_y_pt = min(pts, key=lambda p: p.y)
-            max_y_pt = max(pts, key=lambda p: p.y)
-
-            top_line = Part.LineSegment(max_y_pt, min_y_pt).toShape()
-
-            try:
-                # Try to make a wire from the curve and the top line
-                return Part.Wire([curve, top_line])
-            except:
-                # If that fails, maybe the curve is already closed
+            if (p_start - p_end).Length > 1e-4:
+                top_line = Part.LineSegment(p_end, p_start).toShape()
+                try:
+                    return Part.Wire([curve, top_line])
+                except:
+                    return Part.Wire([curve])
+            else:
                 return Part.Wire([curve])
 
         except Exception:
