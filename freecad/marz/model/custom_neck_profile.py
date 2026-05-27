@@ -144,3 +144,19 @@ class CustomNeckProfile:
 
     def wire(self, width, height):
         return self._scale_shape(width, height, wire=True)
+
+
+
+    def _high_stability_fallback(self, width, height, wire):
+        """Standard U-shape fallback mapped to (X:Depth, Y:Lateral)"""
+        # (X=Depth, Y=Lateral, Z=0)
+        leftTop = Vector(0, -width / 2.0, 0)
+        rightTop = Vector(0, width / 2.0, 0)
+        cent = Vector(-height, 0, 0)
+        points = [leftTop, cent, rightTop]
+        bsp = Part.BSplineCurve()
+        bsp.interpolate(points)
+        curve = bsp.toShape()
+        if wire:
+            return Part.Wire([curve, Part.LineSegment(rightTop, leftTop).toShape()])
+        return curve
