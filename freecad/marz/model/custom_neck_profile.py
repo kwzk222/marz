@@ -34,6 +34,7 @@ class CustomNeckProfile:
 
 
 
+
     def _scale_shape(self, width, height, wire=True):
         """Scales the SVG shape to exactly match the desired width and height"""
         try:
@@ -59,10 +60,8 @@ class CustomNeckProfile:
             # Center X (Lateral) exactly around 0.
             trans_x = -(scaled_bbox.XMax + scaled_bbox.XMin) / 2.0
 
-            # Align Y (Depth) min to 0.
-            # FreeCAD imports standard SVGs with Y increasing downwards.
-            # Translating by -YMin ensures the SVG top is at Y=0 and bottom is at Y=height.
-            trans_y = -scaled_bbox.YMin
+            # Align Y (Depth) max to 0.
+            trans_y = -scaled_bbox.YMax
 
             scaled_shape.translate(Vector(trans_x, trans_y, 0))
 
@@ -73,14 +72,27 @@ class CustomNeckProfile:
             all_pts = []
             for edge in edges:
                 pts = edge.discretize(Number=20)
-                # Map coordinates to FreeCAD Profile format: X axis is Depth, Y axis is Lateral.
-                # Since Y goes from 0 (top) down to height (bottom), we set X = -p.y
-                # This correctly puts the top at X=0 (fretboard) and bottom at X=-height (neck back).
-                mapped_pts = [Vector(-p.y, p.x, 0) for p in pts]
+                mapped_pts = [Vector(p.y, p.x, 0) for p in pts]
                 if not all_pts:
                     all_pts.extend(mapped_pts)
                 else:
                     all_pts.extend(mapped_pts[1:])
+
+            # Dynamically check orientation and invert Depth (X axis) if it's upside down.
+            # A correct neck profile has its endpoints (fretboard edge) closer to 0
+            # and its midpoint (back of neck) closer to -height.
+            # If the ends are deeper than the middle, we invert X.
+            if len(all_pts) > 2:
+                end_depth = abs(all_pts[0].x) + abs(all_pts[-1].x)
+                mid_depth = abs(all_pts[len(all_pts)//2].x) * 2
+
+                # If the ends are deeper (more negative) than the middle, the shape is upside down.
+                if end_depth > mid_depth:
+                    # Invert X axis for all points and shift so the peak remains bounded.
+                    # Since X ranges from -height to 0, inverting makes it 0 to height.
+                    # We subtract height to shift it back to -height to 0.
+                    for i in range(len(all_pts)):
+                        all_pts[i] = Vector(-all_pts[i].x - height, all_pts[i].y, 0)
 
             for i, p in enumerate(all_pts):
                 new_x = p.x
@@ -134,6 +146,7 @@ class CustomNeckProfile:
 
         except Exception:
             return self._high_stability_fallback(width, height, wire)
+
 
     def __call__(self, width, height, wire=True):
         """Returns the profile section. wire=True for closed solid loft, wire=False for surface building."""
