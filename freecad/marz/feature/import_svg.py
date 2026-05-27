@@ -288,7 +288,7 @@ def import_custom_shapes(
     targets.clean(doc=doc)
 
     # Update 2d compound
-    if comp2d:
+    if comp2d and targets.draft:
         progress_listener.add('Updating draft objects (2d)...')
         targets.draft.set(Part.makeCompound(comp2d), visibility=False, doc=doc)
 
