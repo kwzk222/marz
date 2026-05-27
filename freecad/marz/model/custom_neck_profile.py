@@ -61,9 +61,11 @@ class CustomNeckProfile:
             # Center X (Lateral) exactly around 0.
             trans_x = -(scaled_bbox.XMax + scaled_bbox.XMin) / 2.0
 
-            # Align Y (Depth) so that the TOP of the SVG (YMin) is exactly at Y=0.
-            # In standard SVGs, Y=0 is the top, and Y increases downwards.
-            trans_y = -scaled_bbox.YMin
+            # Align Y (Depth) max to 0.
+            # FreeCAD imports SVG with inverted Y, meaning the top of the U-shape is at Y=0,
+            # and the bottom of the U-shape drops into negative Y.
+            # Translating by -YMax ensures the highest point (fretboard) is exactly at Y=0.
+            trans_y = -scaled_bbox.YMax
 
             scaled_shape.translate(Vector(trans_x, trans_y, 0))
 
@@ -76,10 +78,9 @@ class CustomNeckProfile:
                 pts = edge.discretize(Number=20)
                 # Map coordinates to FreeCAD Profile format:
                 # X axis is Depth. Y axis is Lateral.
-                # The translated SVG has its top at Y=0 and bottom at Y=height.
-                # We need Depth (X) to go from 0 down to -height. Thus, X = -p.y
-                # We need Lateral (Y) to be centered from -width/2 to width/2. Thus, Y = p.x
-                mapped_pts = [Vector(-p.y, p.x, 0) for p in pts]
+                # Since Y is already mapped from 0 down to -height (due to FreeCAD SVG Y inversion),
+                # we just set X = p.y and Y = p.x
+                mapped_pts = [Vector(p.y, p.x, 0) for p in pts]
                 if not all_pts:
                     all_pts.extend(mapped_pts)
                 else:
