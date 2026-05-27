@@ -48,6 +48,8 @@ class CustomNeckProfile:
             scale_x = width / svg_width
             scale_y = height / svg_height
 
+
+            # Scale
             matrix = App.Matrix()
             matrix.scale(scale_x, scale_y, 1.0)
 
@@ -56,9 +58,12 @@ class CustomNeckProfile:
 
             scaled_bbox = scaled_shape.BoundBox
 
-            # Center X (Lateral) exactly around 0, and align Y (Depth) max to 0
+            # Center X (Lateral) exactly around 0.
             trans_x = -(scaled_bbox.XMax + scaled_bbox.XMin) / 2.0
-            trans_y = -scaled_bbox.YMax
+
+            # Align Y (Depth) so that the TOP of the SVG (YMin) is exactly at Y=0.
+            # In standard SVGs, Y=0 is the top, and Y increases downwards.
+            trans_y = -scaled_bbox.YMin
 
             scaled_shape.translate(Vector(trans_x, trans_y, 0))
 
@@ -69,18 +74,17 @@ class CustomNeckProfile:
             all_pts = []
             for edge in edges:
                 pts = edge.discretize(Number=20)
-                # Ensure the points are mapped to X:Depth, Y:Lateral
-                # Original SVG: X is Lateral (scaled by width), Y is Depth (scaled by height)
-                # We need X to be Depth (negative values down to -height)
-                # We need Y to be Lateral (from -width/2 to width/2)
-                # Since we scaled and translated:
-                # p.x is Lateral, ranging exactly from -width/2 to width/2
-                # p.y is Depth, ranging exactly from -height to 0
-                mapped_pts = [Vector(p.y, p.x, 0) for p in pts]
+                # Map coordinates to FreeCAD Profile format:
+                # X axis is Depth. Y axis is Lateral.
+                # The translated SVG has its top at Y=0 and bottom at Y=height.
+                # We need Depth (X) to go from 0 down to -height. Thus, X = -p.y
+                # We need Lateral (Y) to be centered from -width/2 to width/2. Thus, Y = p.x
+                mapped_pts = [Vector(-p.y, p.x, 0) for p in pts]
                 if not all_pts:
                     all_pts.extend(mapped_pts)
                 else:
                     all_pts.extend(mapped_pts[1:])
+
 
             # Ensure extremes are EXACTLY bound to width and height to avoid floating point errors
             for i, p in enumerate(all_pts):
