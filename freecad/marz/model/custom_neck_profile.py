@@ -52,12 +52,18 @@ class CustomNeckProfile:
             if not raw_pts:
                 return self._high_stability_fallback(width, height, wire)
 
-            min_x = min(p.x for p in raw_pts)
-            max_x = max(p.x for p in raw_pts)
             min_y = min(p.y for p in raw_pts)
             max_y = max(p.y for p in raw_pts)
 
-            svg_width = max_x - min_x
+            # To prevent bulging neck profiles from scaling down the structural glue width,
+            # we determine the svg width solely based on the structural end points of the curve
+            # (which represent the two edges that touch the fretboard).
+            start_p = raw_pts[0]
+            end_p = raw_pts[-1]
+            structural_min_x = min(start_p.x, end_p.x)
+            structural_max_x = max(start_p.x, end_p.x)
+
+            svg_width = structural_max_x - structural_min_x
             svg_height = max_y - min_y
 
             if svg_width < 1e-5 or svg_height < 1e-5:
@@ -82,12 +88,16 @@ class CustomNeckProfile:
             if not scaled_raw_pts:
                 return self._high_stability_fallback(width, height, wire)
 
-            s_min_x = min(p.x for p in scaled_raw_pts)
-            s_max_x = max(p.x for p in scaled_raw_pts)
             s_max_y = max(p.y for p in scaled_raw_pts)
 
-            # Center X (Lateral) exactly around 0 using geometric bounds
-            trans_x = -(s_max_x + s_min_x) / 2.0
+            # Center X (Lateral) exactly around 0 using the structural endpoints
+            # (ignoring side bulges that would shift the centering off the fretboard)
+            scaled_start_p = scaled_raw_pts[0]
+            scaled_end_p = scaled_raw_pts[-1]
+            s_structural_min_x = min(scaled_start_p.x, scaled_end_p.x)
+            s_structural_max_x = max(scaled_start_p.x, scaled_end_p.x)
+
+            trans_x = -(s_structural_max_x + s_structural_min_x) / 2.0
 
             # Align Y (Depth) max to 0 using geometric bounds
             trans_y = -s_max_y
