@@ -73,13 +73,27 @@ class CustomNeckProfile:
             scaled_shape = self.shape.copy()
             scaled_shape.transformShape(matrix)
 
-            scaled_bbox = scaled_shape.BoundBox
+            edges = scaled_shape.Edges
+            all_pts = []
 
-            # Center X (Lateral) exactly around 0.
-            trans_x = -(scaled_bbox.XMax + scaled_bbox.XMin) / 2.0
+            # Find bounds of scaled shape to translate correctly
+            scaled_raw_pts = []
+            for edge in edges:
+                pts = edge.discretize(Number=50)
+                scaled_raw_pts.extend(pts)
 
-            # Align Y (Depth) max to 0.
-            trans_y = -scaled_bbox.YMax
+            if not scaled_raw_pts:
+                return self._high_stability_fallback(width, height, wire)
+
+            s_min_x = min(p.x for p in scaled_raw_pts)
+            s_max_x = max(p.x for p in scaled_raw_pts)
+            s_max_y = max(p.y for p in scaled_raw_pts)
+
+            # Center X (Lateral) exactly around 0 using geometric bounds
+            trans_x = -(s_max_x + s_min_x) / 2.0
+
+            # Align Y (Depth) max to 0 using geometric bounds
+            trans_y = -s_max_y
 
             scaled_shape.translate(Vector(trans_x, trans_y, 0))
 
