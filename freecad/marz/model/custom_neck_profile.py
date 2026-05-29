@@ -42,69 +42,8 @@ class CustomNeckProfile:
             if not edges:
                 return self._high_stability_fallback(width, height, wire)
 
-            # Extract points to find true bounds instead of using shape.BoundBox
-            # which might include invisible control points
-            raw_pts = []
-            for edge in edges:
-                pts = edge.discretize(Number=50) # use 50 points per edge for decent accuracy
-                raw_pts.extend(pts)
-
-            if not raw_pts:
-                return self._high_stability_fallback(width, height, wire)
-
-            min_y = min(p.y for p in raw_pts)
-            max_y = max(p.y for p in raw_pts)
-
-            # To prevent bulging neck profiles from scaling down the structural glue width,
-            # we determine the svg width solely based on the structural end points of the curve
-            # (which represent the two edges that touch the fretboard).
-            start_p = raw_pts[0]
-            end_p = raw_pts[-1]
-            structural_min_x = min(start_p.x, end_p.x)
-            structural_max_x = max(start_p.x, end_p.x)
-
-            svg_width = structural_max_x - structural_min_x
-            svg_height = max_y - min_y
-
-            if svg_width < 1e-5 or svg_height < 1e-5:
-                return self._high_stability_fallback(width, height, wire)
-
-            # Map X=Lateral, Y=Depth
-            scale_x = width / svg_width
-            scale_y = height / svg_height
-
-            matrix = App.Matrix()
-            matrix.scale(scale_x, scale_y, 1.0)
-
-            scaled_shape = self.shape.copy()
-            scaled_shape.transformShape(matrix)
-
-            # Find bounds of scaled shape to translate correctly
-            scaled_raw_pts = []
-            for edge in scaled_shape.Edges:
-                pts = edge.discretize(Number=50)
-                scaled_raw_pts.extend(pts)
-
-            if not scaled_raw_pts:
-                return self._high_stability_fallback(width, height, wire)
-
-            s_max_y = max(p.y for p in scaled_raw_pts)
-
-            # Center X (Lateral) exactly around 0 using the structural endpoints
-            # (ignoring side bulges that would shift the centering off the fretboard)
-            scaled_start_p = scaled_raw_pts[0]
-            scaled_end_p = scaled_raw_pts[-1]
-            s_structural_min_x = min(scaled_start_p.x, scaled_end_p.x)
-            s_structural_max_x = max(scaled_start_p.x, scaled_end_p.x)
-
-            trans_x = -(s_structural_max_x + s_structural_min_x) / 2.0
-
-            # Align Y (Depth) max to 0 using geometric bounds
-            trans_y = -s_max_y
-
-            scaled_shape.translate(Vector(trans_x, trans_y, 0))
-
-            edges = scaled_shape.Edges
+            # Map the SVG directly to points and correct the orientation FIRST.
+            # SVG space is X=Lateral, Y=Depth. We map to FreeCAD neck space: X=Depth, Y=Lateral
             all_pts = []
             for edge in edges:
                 pts = edge.discretize(Number=20)
@@ -114,28 +53,62 @@ class CustomNeckProfile:
                 else:
                     all_pts.extend(mapped_pts[1:])
 
-            # Dynamically check orientation and invert Depth (X axis) if it's upside down.
-            # A correct neck profile has its endpoints (fretboard edge) closer to 0
-            # and its midpoint (back of neck) closer to -height.
-            # If the ends are deeper than the middle, we invert X.
-            if len(all_pts) > 2:
-                end_depth = abs(all_pts[0].x) + abs(all_pts[-1].x)
-                mid_depth = abs(all_pts[len(all_pts)//2].x) * 2
+            if len(all_pts) < 2:
+                return self._high_stability_fallback(width, height, wire)
 
-                # If the ends are deeper (more negative) than the middle, the shape is upside down.
-                if end_depth > mid_depth:
-                    # Invert X axis for all points and shift so the peak remains bounded.
-                    # Since X ranges from -height to 0, inverting makes it 0 to height.
-                    # We subtract height to shift it back to -height to 0.
-                    for i in range(len(all_pts)):
-                        all_pts[i] = Vector(-all_pts[i].x - height, all_pts[i].y, 0)
+            # 1. Normalize depth (X axis) so that the top endpoints align to 0.
+            # Note: The structural connection to the fretboard is represented by the first and last points.
+            start_x = all_pts[0].x
+            end_x = all_pts[-1].x
 
+            # Translate shape so the structural endpoints lie on the X=0 plane
+            top_offset = (start_x + end_x) / 2.0
+            for i in range(len(all_pts)):
+                all_pts[i] = Vector(all_pts[i].x - top_offset, all_pts[i].y, 0)
+
+            # 2. Check orientation. In correct orientation, the middle (back of neck) is deeper (negative X)
+            # than the endpoints (which are now roughly 0).
+            mid_idx = len(all_pts) // 2
+            if all_pts[mid_idx].x > 0:
+                # Upside down: Invert X
+                for i in range(len(all_pts)):
+                    all_pts[i] = Vector(-all_pts[i].x, all_pts[i].y, 0)
+
+            # 3. Determine current dimensions based on structural points and true extremes.
+            start_y = all_pts[0].y
+            end_y = all_pts[-1].y
+            current_structural_width = abs(start_y - end_y)
+
+            current_min_x = min(p.x for p in all_pts)
+            current_max_x = max(p.x for p in all_pts)
+            current_depth = current_max_x - current_min_x
+
+            if current_structural_width < 1e-5 or current_depth < 1e-5:
+                return self._high_stability_fallback(width, height, wire)
+
+            # 4. Scale and Translate in FreeCAD space.
+            # Scale factors
+            scale_y = width / current_structural_width
+            scale_x = height / current_depth
+
+            # Find the new centered Y offset by measuring the scaled endpoints
+            scaled_start_y = all_pts[0].y * scale_y
+            scaled_end_y = all_pts[-1].y * scale_y
+            trans_y = -(scaled_start_y + scaled_end_y) / 2.0
+
+            # Find the new X offset by aligning the deepest point to -height
+            scaled_min_x = current_min_x * scale_x
+            trans_x = -height - scaled_min_x
+
+            # Apply final mapping
             for i, p in enumerate(all_pts):
-                new_x = p.x
-                new_y = p.y
-                # Depth bounds (X axis) - we only clamp the top to 0 just in case
-                # mathematical precision floated above the fretboard bottom.
-                # We leave lateral bounds alone to preserve the exact geometric Bezier curve topology.
+                new_x = (p.x * scale_x) + trans_x
+                new_y = (p.y * scale_y) + trans_y
+
+                # We clamp only the top edge exactly to 0 if mathematical floating point
+                # imprecision pushed it above the fretboard bottom.
+                # We leave lateral bounds entirely alone to preserve the exact geometric Bezier topology
+                # (which prevents 'Map entry 0 is empty' faults).
                 if new_x > 0:
                     new_x = 0.0
                 all_pts[i] = Vector(new_x, new_y, 0)
