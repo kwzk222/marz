@@ -73,12 +73,9 @@ class CustomNeckProfile:
             scaled_shape = self.shape.copy()
             scaled_shape.transformShape(matrix)
 
-            edges = scaled_shape.Edges
-            all_pts = []
-
             # Find bounds of scaled shape to translate correctly
             scaled_raw_pts = []
-            for edge in edges:
+            for edge in scaled_shape.Edges:
                 pts = edge.discretize(Number=50)
                 scaled_raw_pts.extend(pts)
 
@@ -126,15 +123,10 @@ class CustomNeckProfile:
             for i, p in enumerate(all_pts):
                 new_x = p.x
                 new_y = p.y
-                # Lateral bounds (Y axis)
-                if new_y < -width / 2.0:
-                    new_y = -width / 2.0
-                elif new_y > width / 2.0:
-                    new_y = width / 2.0
-                # Depth bounds (X axis)
-                if new_x < -height:
-                    new_x = -height
-                elif new_x > 0:
+                # Depth bounds (X axis) - we only clamp the top to 0 just in case
+                # mathematical precision floated above the fretboard bottom.
+                # We leave lateral bounds alone to preserve the exact geometric Bezier curve topology.
+                if new_x > 0:
                     new_x = 0.0
                 all_pts[i] = Vector(new_x, new_y, 0)
 
