@@ -38,9 +38,27 @@ class CustomNeckProfile:
     def _scale_shape(self, width, height, wire=True):
         """Scales the SVG shape to exactly match the desired width and height"""
         try:
-            bbox = self.shape.BoundBox
-            svg_width = bbox.XMax - bbox.XMin
-            svg_height = bbox.YMax - bbox.YMin
+            edges = self.shape.Edges
+            if not edges:
+                return self._high_stability_fallback(width, height, wire)
+
+            # Extract points to find true bounds instead of using shape.BoundBox
+            # which might include invisible control points
+            raw_pts = []
+            for edge in edges:
+                pts = edge.discretize(Number=50) # use 50 points per edge for decent accuracy
+                raw_pts.extend(pts)
+
+            if not raw_pts:
+                return self._high_stability_fallback(width, height, wire)
+
+            min_x = min(p.x for p in raw_pts)
+            max_x = max(p.x for p in raw_pts)
+            min_y = min(p.y for p in raw_pts)
+            max_y = max(p.y for p in raw_pts)
+
+            svg_width = max_x - min_x
+            svg_height = max_y - min_y
 
             if svg_width < 1e-5 or svg_height < 1e-5:
                 return self._high_stability_fallback(width, height, wire)
@@ -66,9 +84,6 @@ class CustomNeckProfile:
             scaled_shape.translate(Vector(trans_x, trans_y, 0))
 
             edges = scaled_shape.Edges
-            if not edges:
-                return self._high_stability_fallback(width, height, wire)
-
             all_pts = []
             for edge in edges:
                 pts = edge.discretize(Number=20)

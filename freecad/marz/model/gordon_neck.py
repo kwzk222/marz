@@ -765,12 +765,17 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
     # Slice the neck solid exactly at the physical fretboard end (fend_v.x)
     # to prevent any Gordon surface artifacts or extension past the wood boundary.
     try:
-        # Increase plane size for safety
-        slice_plane = Part.makePlane(500, 500, Vector(fend_v.x, -250, -250), Vector(1,0,0))
-        res = split_api.slice(neck_solid, [slice_plane], 'CompSolid')
-        if res and hasattr(res, 'Solids') and len(res.Solids) > 0:
-            # Select the part towards the nut (more positive X)
-            neck_solid = geom.query_one(res.Solids, order_by=lambda s: -s.CenterOfMass.x)
+        # Only slice if the solid extends past the slice plane (fend_v.x)
+        if neck_solid and not neck_solid.isNull():
+            bbox = neck_solid.BoundBox
+            # If XMin is strictly less than the fretboard end, there is a bulge to slice
+            if bbox.XMin < fend_v.x - 1e-4:
+                # Increase plane size for safety
+                slice_plane = Part.makePlane(500, 500, Vector(fend_v.x, -250, -250), Vector(1,0,0))
+                res = split_api.slice(neck_solid, [slice_plane], 'CompSolid')
+                if res and hasattr(res, 'Solids') and len(res.Solids) > 0:
+                    # Select the part towards the nut (more positive X)
+                    neck_solid = geom.query_one(res.Solids, order_by=lambda s: -s.CenterOfMass.x)
     except Exception:
         pass
 
