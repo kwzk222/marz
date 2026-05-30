@@ -873,7 +873,14 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
     # Creating a dummy HeelProfiles for EXTRA_CHUNK
     heel = HeelProfiles([], profiles.edges[-1])
 
-    return NeckBase(heel, profiles, combined.removeSplitter() if not combined.isNull() else combined)
+    final_combined = combined
+    if combined is not None and not combined.isNull():
+        try:
+            final_combined = combined.removeSplitter()
+        except Exception:
+            final_combined = combined
+
+    return NeckBase(heel, profiles, final_combined)
 
 @task
 @traced("Gordon Neck: Volute Arc")
