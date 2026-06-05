@@ -27,6 +27,7 @@ from freecad.marz.model.headstock_builder import getTop, BoundProfile
 from freecad.marz.utils import traced, geom, traceTime
 from freecad.marz.extension.threading import Task, task
 from freecad.marz.extension.fc import App, Vector, Rotation, Placement
+from freecad.marz.curves.gordon import InterpolateCurveNetwork
 
 
 from typing import List, Optional
@@ -246,23 +247,30 @@ def headstock_end_profile(inst: Instrument, fbd: FretboardData, neckd: NeckData)
     # !important: angle = 0
     _, transition_edge = getTop(pos, 0, inst.headStock.width, inst.headStock.length, profile, 30)
 
+    if transition_edge is None or transition_edge.isNull():
+        return None
+
     mid = transition_edge.CenterOfMass
     height = gross_thickness
-    a = transition_edge.Vertexes[0].Point
+
+    # Robust endpoint selection for custom SVG wires
+    vxs = sorted(transition_edge.Vertexes, key=lambda v: v.Point.y)
+    a = vxs[0].Point
+    i = vxs[-1].Point
+
     b = a + Vector(0,0,-height/2.0)
     c = b + Vector(0,0,-height/2.0)
     # Taper the transition depth corners slightly to prevent Gordon from bulging
     d = Vector(c.x, c.y * 0.95, -height)
     e = Vector(mid.x, mid.y, -height - 1.0)
-    i = transition_edge.Vertexes[1].Point
     h = i + Vector(0,0,-height/2.0)
     g = h + Vector(0,0,-height/2.0)
     f = Vector(g.x, g.y * 0.95, -height)
 
-    # Note: Parametric profiles typically go from Treble (positive Y) to Bass (negative Y).
-    # We must ensure `all_pts` flows in the exact same orientation.
-    # We sort by Y so it always goes from Treble to Bass reliably.
-    if a.y < i.y:
+    # Note: We must ensure `all_pts` flows in the exact same orientation as neck profiles.
+    # Neck profiles are forced to Bass -> Treble (negative Y -> positive Y) in neck_blank.
+    # We sort by Y so it always goes from Bass to Treble reliably.
+    if a.y > i.y:
         all_pts = [i, h, g, f, e, d, c, b, a]
     else:
         all_pts = [a, b, c, d, e, f, g, h, i]
@@ -498,12 +506,15 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
     all_profiles = []
     for e in raw_profiles:
         if e is None or e.isNull(): continue
+
+        # Standardize orientation: Always Bass to Treble (Negative Y to Positive Y)
+        # This is critical for Gordon surface interpolation to succeed.
         p_start = e.valueAt(e.FirstParameter)
         p_end = e.valueAt(e.LastParameter)
         if p_start.y > p_end.y:
             e = e.reversed()
 
-        # Resample to exactly 21 points
+        # Resample to exactly 31 points (Number=30 gives 31 points)
         points = e.discretize(Number=30)
         bsp = Part.BSplineCurve()
         bsp.interpolate(points)
@@ -542,7 +553,11 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
         solid = None
         face_gordon = None
 
-        face_gordon = None
+        try:
+            interp = InterpolateCurveNetwork(prof_curves, guide_curves, tol_3d, tol_2d)
+            face_gordon = interp.surface()
+        except Exception:
+            face_gordon = None
 
         if face_gordon and not face_gordon.isNull():
             # Robust boundary extraction
@@ -656,12 +671,14 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
     all_profiles = []
     for e in raw_profiles:
         if e is None or e.isNull(): continue
+
+        # Standardize orientation: Always Bass to Treble (Negative Y to Positive Y)
         p_start = e.valueAt(e.FirstParameter)
         p_end = e.valueAt(e.LastParameter)
         if p_start.y > p_end.y:
             e = e.reversed()
 
-        # Resample to exactly 21 points
+        # Resample to exactly 31 points
         points = e.discretize(Number=30)
         bsp = Part.BSplineCurve()
         bsp.interpolate(points)
@@ -697,7 +714,11 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
     neck_solid = None
     face_gordon = None
 
-    face_gordon = None
+    try:
+        interp = InterpolateCurveNetwork(prof_curves, guide_curves, tol_3d, tol_2d)
+        face_gordon = interp.surface()
+    except Exception:
+        face_gordon = None
 
     if face_gordon and not face_gordon.isNull():
         # Robust boundary extraction
@@ -813,6 +834,30 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
     d_offset = float(inst.neck.extraChunkDepthOffset)    # Thickness (Z)
     chunk_thickness = float(inst.neck.extraChunkThickness)
     conn_thickness = float(inst.neck.extraChunkVerticalThickness)
+    top_offset = float(getattr(inst.neck, 'extraChunkTopOffset', 0.0))
+
+    def tapered_box(x1, x2, z_bottom, z_top):
+        # fbd.widthAt expects distance from midline start.
+        # neckFrame.midLine.start.x is near nut.
+        line_start_x = fbd.neckFrame.midLine.start.x
+        d1 = abs(x1 - line_start_x)
+        d2 = abs(x2 - line_start_x)
+        w1 = fbd.widthAt(d1)
+        w2 = fbd.widthAt(d2)
+
+        p1 = Vector(x1, -w1/2, z_bottom)
+        p2 = Vector(x1,  w1/2, z_bottom)
+        p3 = Vector(x1,  w1/2, z_top)
+        p4 = Vector(x1, -w1/2, z_top)
+        wire1 = Part.makePolygon([p1, p2, p3, p4, p1])
+
+        p5 = Vector(x2, -w2/2, z_bottom)
+        p6 = Vector(x2,  w2/2, z_bottom)
+        p7 = Vector(x2,  w2/2, z_top)
+        p8 = Vector(x2, -w2/2, z_top)
+        wire2 = Part.makePolygon([p5, p6, p7, p8, p5])
+
+        return Part.makeLoft([Part.Wire(wire1), Part.Wire(wire2)], True)
 
     # L-shaped logic:
     # 1. Thin box (the "__" part): This part is at d_offset and has chunk_thickness.
@@ -829,7 +874,7 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
     # Z Coordinates for thin box
     z_thin_bottom = -thickness - d_offset
     z_thin_top = z_thin_bottom + chunk_thickness
-    z_thin_top = min(z_thin_top, 0.0)
+    z_thin_top = min(z_thin_top, -top_offset)
     actual_thin_thickness = max(z_thin_top - z_thin_bottom, 0.1)
 
     # 2. Connection Box (Vertical connector)
@@ -841,20 +886,18 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
 
     # Z coordinates for connection box
     # It must span from the lowest point (z_thin_bottom or -thickness)
-    # up to the highest point (at least fretboard bottom Z=0 for overlap).
+    # up to the highest point (perfectly flat with neck top surface Z=0 minus top_offset).
     z_conn_bottom = min(z_thin_bottom, -thickness)
-    z_conn_top = 0.5 # Reach slightly above fretboard bottom for good fusion overlap
+    z_conn_top = -top_offset
 
-    chunk_conn = Part.makeBox(conn_thickness + 1.0, width, z_conn_top - z_conn_bottom,
-                              Vector(conn_left_x - 0.5, -width/2, z_conn_bottom))
+    chunk_conn = tapered_box(conn_left_x - 0.5, conn_right_x + 0.5, z_conn_bottom, z_conn_top)
 
     # The main chunk spans from the far bridge end (chunk_end_x) up to the connector/neck end.
     x_bridge = min(chunk_end_x, chunk_start_x)
     x_nut = max(chunk_start_x, conn_left_x)
     
     if actual_thin_thickness > 0:
-        chunk_main = Part.makeBox(x_nut - x_bridge, width, actual_thin_thickness,
-                                  Vector(x_bridge, -width/2, z_thin_bottom))
+        chunk_main = tapered_box(x_bridge, x_nut, z_thin_bottom, z_thin_top)
     else:
         chunk_main = None
 
@@ -901,27 +944,44 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
 @traced("Gordon Neck: Volute Arc")
 def volute_cutter_arc(radius, transition_wire, thickness, plate_normal) -> Task[Solid]:
     """Generate solid to cut from the bottom of the headstock"""
-    transition_edge = transition_wire.Edges[0]
-    length = transition_edge.Length
-    pnt = transition_edge.Curve.value(-5)
+    if transition_wire is None or transition_wire.isNull():
+        return None
+
+    # Robust direction and length for custom SVG wires
+    vxs = sorted(transition_wire.Vertexes, key=lambda v: v.Point.y)
+    p_bass = vxs[0].Point
+    p_treble = vxs[-1].Point
+    direction = (p_treble - p_bass).normalize()
+    length = (p_treble - p_bass).Length
+
+    pnt = p_bass - direction * 5
     pnt = pnt + plate_normal * (thickness)
     pnt2 = pnt + (plate_normal * radius)
-    cyl = Part.makeCylinder(radius, length + 10, pnt2, transition_edge.Curve.Direction)
+    cyl = Part.makeCylinder(radius, length + 10, pnt2, direction)
     return cyl
 
 @task
 @traced("Gordon Neck: Volute Flat")
 def volute_cutter_flat(transition_wire, thickness, nut: Edge, plate_normal: Vector) -> Task[Solid]:
     """Generate solid to cut from the bottom of the headstock"""
-    transition_edge = transition_wire.Edges[0]
-    transition_edge_mid = edge_mid_point(transition_edge)
+    if transition_wire is None or transition_wire.isNull():
+        return None
+
+    # Robust direction and mid point for custom SVG wires
+    vxs = sorted(transition_wire.Vertexes, key=lambda v: v.Point.y)
+    p_bass = vxs[0].Point
+    p_treble = vxs[-1].Point
+    direction = (p_treble - p_bass).normalize()
+    length = (p_treble - p_bass).Length
+
+    transition_edge_mid = transition_wire.CenterOfMass
     dist_trans_to_nut, *_ = Vertex(transition_edge_mid).distToShape(nut)
-    length = transition_edge.Length + 10
-    pnt = transition_edge.Curve.value(-5)
+
+    pnt = p_bass - direction * 5
     pnt = pnt + plate_normal * (thickness)
-    plane = Part.makePlane(length, length, pnt, plate_normal, transition_edge.Curve.Direction)
+    plane = Part.makePlane(length + 10, length + 10, pnt, plate_normal, direction)
     cutter = plane.extrude(plate_normal * 1000)
-    tr = plate_normal.cross(transition_edge.Curve.Direction).normalize()
+    tr = plate_normal.cross(direction).normalize()
     if tr.x > 0:
         tr = tr.negative()
     cutter.translate(tr * (dist_trans_to_nut - 0.5))
