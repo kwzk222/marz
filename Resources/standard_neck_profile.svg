@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="100" xmlns="http://www.w3.org/2000/svg">
+  <!-- A standard U-shape for custom neck profile reference -->
+  <!-- Start top-left, curve down and across, end top-right -->
+  <path id="contour" d="M 0,0 C 0,100 200,100 200,0" stroke="black" fill="none" stroke-width="2"/>
+
+  <!-- Midline path to indicate the center of the profile -->
+  <path id="midline" d="M 100,0 L 100,100" stroke="red" stroke-dasharray="5,5" fill="none" stroke-width="1"/>
+
+  <!-- Indications for Bass and Treble sides -->
+  <text x="10" y="20" font-family="Arial" font-size="12" fill="black">Bass Side</text>
+  <text x="120" y="20" font-family="Arial" font-size="12" fill="black">Treble Side</text>
+</svg>
