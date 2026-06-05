@@ -494,6 +494,7 @@ def apply_headstock_angle(edge: Edge, angle_deg: float, fbd: FretboardData) -> E
 @task
 @traced('Gordon Neck: Base')
 def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[NeckBase]:
+    from freecad.marz.feature.logging import MarzLogger
 
     if inst.neck.joint == NeckJoint.EXTRA_CHUNK:
         # Task must return NeckBase object directly
@@ -514,8 +515,10 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
 
     # Re-parameterize profiles to make it smooth
     all_profiles = []
-    for e in raw_profiles:
-        if e is None or e.isNull(): continue
+    for index, e in enumerate(raw_profiles):
+        if e is None or e.isNull():
+            MarzLogger.warn(f"Gordon Neck: Profile {index} is None or Null. Skipping.")
+            continue
 
         # Standardize orientation: Always Bass to Treble (Negative Y to Positive Y)
         # This is critical for Gordon surface interpolation to succeed.
@@ -559,6 +562,13 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
 
     # Neck gordon surface
     with traceTime("Gordon Neck: InterpolateCurveNetwork"):
+        if not profiles_edges:
+             MarzLogger.error("Gordon Neck: No profiles generated for neck blank.")
+             return NeckBase(heel, profiles, None)
+        if not guides:
+             MarzLogger.error("Gordon Neck: No guides generated for neck blank.")
+             return NeckBase(heel, profiles, None)
+
         tol_3d = 1.0
         tol_2d = 1.0
         guide_curves = [e.Curve.toBSpline(e.FirstParameter, e.LastParameter) for e in guides]
@@ -571,7 +581,8 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
             from freecad.marz.curves.gordon import InterpolateCurveNetwork
             interp = InterpolateCurveNetwork(prof_curves, guide_curves, tol_3d, tol_2d)
             face_gordon = interp.surface()
-        except Exception:
+        except Exception as ex:
+            MarzLogger.warn(f"Gordon Neck: Interpolation failed: {ex}. Falling back to Loft.")
             face_gordon = None
 
         if face_gordon and not face_gordon.isNull():
@@ -672,6 +683,7 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
     return NeckBase(heel, profiles, part)
 
 def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> NeckBase:
+    from freecad.marz.feature.logging import MarzLogger
     # Barrel profiles up to the end of fretboard
     profiles = neck_profiles(inst, fbd, neckd)
 
@@ -684,8 +696,10 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
 
     # Re-parameterize profiles
     all_profiles = []
-    for e in raw_profiles:
-        if e is None or e.isNull(): continue
+    for index, e in enumerate(raw_profiles):
+        if e is None or e.isNull():
+            MarzLogger.warn(f"Gordon Neck (Extra Chunk): Profile {index} is None or Null. Skipping.")
+            continue
 
         # Standardize orientation: Always Bass to Treble (Negative Y to Positive Y)
         p_start = e.valueAt(e.FirstParameter)
@@ -736,7 +750,8 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
         from freecad.marz.curves.gordon import InterpolateCurveNetwork
         interp = InterpolateCurveNetwork(prof_curves, guide_curves, tol_3d, tol_2d)
         face_gordon = interp.surface()
-    except Exception:
+    except Exception as ex:
+        MarzLogger.warn(f"Gordon Neck (Extra Chunk): Interpolation failed: {ex}. Falling back to Loft.")
         face_gordon = None
 
     if face_gordon and not face_gordon.isNull():

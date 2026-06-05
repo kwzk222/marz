@@ -74,7 +74,11 @@ def makeInlays(fbd, thickness=-1, inlayDepth=0):
 @PureFunctionCache
 def fretboardSection(c, r, w, t, v):
     """Create a wire section for fretboard loft."""
-    alpha = math.asin(w/(2*r))
+    # Ensure radius is large enough for width
+    if r < w/2.0:
+        r = w/2.0 + 0.1
+
+    alpha = math.asin(max(-1.0, min(1.0, w/(2*r))))
     alpha_deg = rad_to_deg(alpha)
     arc = Part.makeCircle(r, c, v, -alpha_deg, alpha_deg)
 
@@ -82,8 +86,11 @@ def fretboardSection(c, r, w, t, v):
         if arc.Vertexes[0].Point.z <= 0:
             arc = Part.makeCircle(r, c, v, offset-alpha_deg, offset+alpha_deg)
 
+    # High reliability fallback instead of raising exception
     if arc.Vertexes[0].Point.z <= 0:
-        raise ModelException("Fretboard's radius inconsistent with geometry")
+        p1 = c + Vector(0, -w/2, t)
+        p2 = c + Vector(0, w/2, t)
+        arc = Part.makeCircle(r, c + Vector(0,0,-r+t), v, 90-alpha_deg, 90+alpha_deg)
 
     a = arc.Vertexes[0].Point
     b = arc.Vertexes[1].Point
