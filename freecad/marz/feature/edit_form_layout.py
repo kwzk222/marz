@@ -244,6 +244,7 @@ def neck_heel(form):
         form.neck_heelFillet = InputFloat(label=tr('Fillet radius'))
         form.neck_heelOffset = InputFloat(label=tr('Offset'))
         form.neck_jointFret = ui.InputInt(label=tr('Fret'))
+        form.neck_trebleSideExtension = InputFloat(label=tr('Treble side extension'))
 
 # ────────────────────────────────────────────────────────────────────────────
 def neck_joint(form):
@@ -264,6 +265,7 @@ def neck_joint(form):
         form.neck_extraChunkDepthOffset = InputFloat(label=tr('Depth Offset'))
         form.neck_extraChunkThickness = InputFloat(label=tr('Thickness'))
         form.neck_extraChunkVerticalThickness = InputFloat(label=tr('Vertical Thickness'))
+        form.neck_extraChunkTopOffset = InputFloat(label=tr('Top Offset'))
 
 # ────────────────────────────────────────────────────────────────────────────
 def neck_profile(form):

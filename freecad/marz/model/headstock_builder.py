@@ -93,7 +93,8 @@ def getContour():
 def getTransition():
     """Get the custom transition reference wire"""
     t = App.ActiveDocument.getObject('Marz_Headstock_Transition')
-    if t: return t.Shape.Edges[0].copy()
+    if t and hasattr(t, "Shape") and not t.Shape.isNull():
+        return t.Shape.copy()
 
 
 def getDefaultTopTransition(contour, pos, defaultTransitionLength):
@@ -117,6 +118,9 @@ def getTop(pos, angle, width, length, profile, defaultTransitionLength):
         transition = getTransition()
         if transition is None:
             transition = getDefaultTopTransition(contour, pos, defaultTransitionLength)
-        return (place(contour, pos, angle), place(transition, pos, angle))
+
+        c = place(contour, pos, angle)
+        t = place(transition, pos, angle) if transition is not None else None
+        return (c, t)
     else:
         return getDefaultTop(pos, width, length, profile, angle, defaultTransitionLength)

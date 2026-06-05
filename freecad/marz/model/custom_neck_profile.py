@@ -46,7 +46,8 @@ class CustomNeckProfile:
             # SVG space is X=Lateral, Y=Depth. We map to FreeCAD neck space: X=Depth, Y=Lateral
             all_pts = []
             for edge in edges:
-                pts = edge.discretize(Number=20)
+                # Use a high number of points for smooth discretization of custom SVG profiles
+                pts = edge.discretize(Number=50)
                 mapped_pts = [Vector(p.y, p.x, 0) for p in pts]
                 if not all_pts:
                     all_pts.extend(mapped_pts)
@@ -123,8 +124,15 @@ class CustomNeckProfile:
                 if (p - pts[-1]).Length > 1e-4:
                     pts.append(p)
 
+            # Build a high-precision BSpline for a smooth profile surface
             bsp = Part.BSplineCurve()
+            # Increase discretization for interpolation to ensure a smooth result from the input points
+            # Standard interpolation can sometimes create wobbles; use a high number of discretization points
+            # on the original SVG and then interpolate.
             bsp.interpolate(pts)
+            # Ensure high degree for maximum smoothness
+            if bsp.Degree < 3:
+                bsp.increaseDegree(3)
             curve = bsp.toShape()
 
             if not wire:
