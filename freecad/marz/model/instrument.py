@@ -196,7 +196,7 @@ class Neck(Feature):
                  heelFillet=1.0, heelOffset=0.0,
                  extraChunkLength=100.0, extraChunkVerticalOffset=0.0, extraChunkDepthOffset=0.0,
                  extraChunkThickness=15.0, extraChunkVerticalThickness=30.0,
-                 extraChunkTopOffset=0.0):
+                 extraChunkTopOffset=0.0, trebleSideExtension=0.0):
         super().__init__(instrument)
         self.joint = joint
         self.startThickness = startThickness
@@ -215,6 +215,7 @@ class Neck(Feature):
         self.extraChunkThickness = extraChunkThickness
         self.extraChunkVerticalThickness = extraChunkVerticalThickness
         self.extraChunkTopOffset = extraChunkTopOffset
+        self.trebleSideExtension = trebleSideExtension
 
 class StringSet(Feature):
     def __init__(self, instrument, name=None, strings=None):

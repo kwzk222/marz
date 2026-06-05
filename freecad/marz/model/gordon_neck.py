@@ -27,7 +27,6 @@ from freecad.marz.model.headstock_builder import getTop, BoundProfile
 from freecad.marz.utils import traced, geom, traceTime
 from freecad.marz.extension.threading import Task, task
 from freecad.marz.extension.fc import App, Vector, Rotation, Placement
-from freecad.marz.curves.gordon import InterpolateCurveNetwork
 
 
 from typing import List, Optional
@@ -255,6 +254,10 @@ def headstock_end_profile(inst: Instrument, fbd: FretboardData, neckd: NeckData)
 
     # Robust endpoint selection for custom SVG wires
     vxs = sorted(transition_edge.Vertexes, key=lambda v: v.Point.y)
+    # If Y is very similar (vertical transition), sort by X
+    if abs(vxs[0].Point.y - vxs[-1].Point.y) < 1e-3:
+        vxs = sorted(transition_edge.Vertexes, key=lambda v: v.Point.x)
+
     a = vxs[0].Point
     i = vxs[-1].Point
 
@@ -377,6 +380,10 @@ def gordon_neck(inst: Instrument, fbd: FretboardData, neckd: NeckData):
         else:
             # Fallback to empty compound instead of raising error
             pre_assemble = Part.Compound([])
+
+        # Ensure we always have a shape object to avoid failures in downstream cuts
+        if pre_assemble is None:
+             pre_assemble = Part.Compound([])
 
     with traceTime('Gordon Neck: Collect Top, Volute, Pockets'):
         tools = [t_volute_cut(), t_top_cut()]
@@ -513,6 +520,10 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
         p_end = e.valueAt(e.LastParameter)
         if p_start.y > p_end.y:
             e = e.reversed()
+        elif abs(p_start.y - p_end.y) < 1e-3:
+            # For nearly vertical edges (e.g. some custom headstocks), sort by X to ensure consistency
+            if p_start.x > p_end.x:
+                e = e.reversed()
 
         # Resample to exactly 31 points (Number=30 gives 31 points)
         points = e.discretize(Number=30)
@@ -554,6 +565,7 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
         face_gordon = None
 
         try:
+            from freecad.marz.curves.gordon import InterpolateCurveNetwork
             interp = InterpolateCurveNetwork(prof_curves, guide_curves, tol_3d, tol_2d)
             face_gordon = interp.surface()
         except Exception:
@@ -677,6 +689,9 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
         p_end = e.valueAt(e.LastParameter)
         if p_start.y > p_end.y:
             e = e.reversed()
+        elif abs(p_start.y - p_end.y) < 1e-3:
+            if p_start.x > p_end.x:
+                e = e.reversed()
 
         # Resample to exactly 31 points
         points = e.discretize(Number=30)
@@ -715,6 +730,7 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
     face_gordon = None
 
     try:
+        from freecad.marz.curves.gordon import InterpolateCurveNetwork
         interp = InterpolateCurveNetwork(prof_curves, guide_curves, tol_3d, tol_2d)
         face_gordon = interp.surface()
     except Exception:
@@ -909,7 +925,7 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
 
     # Combine chunk with the neck
     combined = neck_solid
-    if neck_solid is None or neck_solid.isNull():
+    if neck_solid is None or neck_solid.isNull() or not neck_solid.isValid():
         if chunk is not None and not chunk.isNull() and chunk.isValid():
             combined = chunk
     else:
@@ -921,11 +937,18 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
                     if fused and not fused.isNull() and fused.isValid():
                         combined = fused
                     else:
+                        # Falling back to compound if fusion fails
                         combined = Part.Compound([neck_solid, chunk])
                 except Exception:
                     combined = Part.Compound([neck_solid, chunk])
         except Exception:
-            pass
+            # Absolute fallback to compound
+            if neck_solid is not None and chunk is not None:
+                 combined = Part.Compound([neck_solid, chunk])
+            elif neck_solid is not None:
+                 combined = neck_solid
+            else:
+                 combined = chunk
 
     # Heel structure for NeckBase (might be needed by other parts of the code)
     # Creating a dummy HeelProfiles for EXTRA_CHUNK
@@ -949,6 +972,9 @@ def volute_cutter_arc(radius, transition_wire, thickness, plate_normal) -> Task[
 
     # Robust direction and length for custom SVG wires
     vxs = sorted(transition_wire.Vertexes, key=lambda v: v.Point.y)
+    if abs(vxs[0].Point.y - vxs[-1].Point.y) < 1e-3:
+        vxs = sorted(transition_wire.Vertexes, key=lambda v: v.Point.x)
+
     p_bass = vxs[0].Point
     p_treble = vxs[-1].Point
     direction = (p_treble - p_bass).normalize()
@@ -969,6 +995,9 @@ def volute_cutter_flat(transition_wire, thickness, nut: Edge, plate_normal: Vect
 
     # Robust direction and mid point for custom SVG wires
     vxs = sorted(transition_wire.Vertexes, key=lambda v: v.Point.y)
+    if abs(vxs[0].Point.y - vxs[-1].Point.y) < 1e-3:
+        vxs = sorted(transition_wire.Vertexes, key=lambda v: v.Point.x)
+
     p_bass = vxs[0].Point
     p_treble = vxs[-1].Point
     direction = (p_treble - p_bass).normalize()

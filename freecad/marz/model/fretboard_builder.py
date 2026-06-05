@@ -71,7 +71,7 @@ def buildFretboardData(model) -> FretboardData:
 
     scaleFrame = calc_scale_frame()
     bassSideMargin = inst.fretboard.sideMargin + inst.stringSet.last / 2.0
-    trebSideMargin = inst.fretboard.sideMargin + inst.stringSet.first / 2.0
+    trebSideMargin = inst.fretboard.sideMargin + inst.stringSet.first / 2.0 + getattr(inst.neck, 'trebleSideExtension', 0.0)
 
     vtreb = scaleFrame.treble.cloneInverted()
     bassPerp = scaleFrame.bass.clone().rotate(math.radians(-90)).vector.setLength(bassSideMargin)

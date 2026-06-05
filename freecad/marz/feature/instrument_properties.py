@@ -86,6 +86,7 @@ properties = [
     fcp('neck.extraChunkThickness',     15.0, 'Extra Chunk Thickness', compat=COMPAT_PRE_028),
     fcp('neck.extraChunkVerticalThickness', 30.0, 'Extra Chunk Vertical Thickness', compat=COMPAT_PRE_028),
     fcp('neck.extraChunkTopOffset',      0.0, 'Extra Chunk Top Offset (relative to neck top surface)', compat=COMPAT_PRE_028),
+    fcp('neck.trebleSideExtension',      0.0, 'Treble side extension (widens the neck away from the centerline)', compat=COMPAT_PRE_028),
 
     # Fretboard
     fcp('fretboard.thickness',          7, 'Fretboard total thickness', compat=COMPAT_PRE_028),
