@@ -124,30 +124,36 @@ class FretboardData:
                              frets, bridgePos, neckFrame, 
                              self.filletRadius, self.heelOffset, getattr(self, 'edo', getattr(self, 'EDO', 12)))
 
-    def widthAt(self, dist):
-        # Calculate the true perpendicular width at the given distance along the midline.
-        # This is essential for multiscale setups where the nut is slanted, avoiding the "spike" bug.
+    def sideWidthsAt(self, dist):
+        # Calculate the true perpendicular distance from midline to each side.
+        # This is essential for multiscale and asymmetric setups.
         from freecad.marz.model.linexy import linexy, lineIntersection
         from freecad.marz.model.vxy import vxy
-        
+
+        line = self.neckFrame.midLine
+        p_mid = line.lerpPointAt(dist)
+        perp_vec = vxy(-line.vector.y, line.vector.x)
+        perp_line = linexy(p_mid.clone(), p_mid.clone().add(perp_vec)).extendSym(1000)
+
+        # Intersect with bass and treble lines
+        i_bass = lineIntersection(self.neckFrame.bass, perp_line)
+        i_treble = lineIntersection(self.neckFrame.treble, perp_line)
+
+        w_bass = p_mid.distanceTo(i_bass.point) if i_bass.point else 0.0
+        w_treble = p_mid.distanceTo(i_treble.point) if i_treble.point else 0.0
+
+        if w_bass == 0 or w_treble == 0:
+            # Fallback to simple interpolation
+            total_w = self.widthAt(dist)
+            return total_w/2.0, total_w/2.0
+
+        return w_bass, w_treble
+
+    def widthAt(self, dist):
+        # Calculate the true perpendicular width at the given distance along the midline.
         try:
-            line = self.neckFrame.midLine
-            # Get the point on the midline at 'dist'
-            p_mid = line.lerpPointAt(dist)
-            
-            # Create a perpendicular line to the midline passing through p_mid
-            perp_vec = vxy(-line.vector.y, line.vector.x)
-            p_mid_clone = p_mid.clone()
-            perp_line = linexy(p_mid_clone, p_mid.clone().add(perp_vec)).extendSym(1000)
-            
-            # Intersect with bass and treble lines
-            i_bass = lineIntersection(self.neckFrame.bass, perp_line)
-            i_treble = lineIntersection(self.neckFrame.treble, perp_line)
-            
-            if i_bass.point and i_treble.point:
-                w = i_bass.point.distanceTo(i_treble.point)
-                if w > 0:
-                    return w
+            w_bass, w_treble = self.sideWidthsAt(dist)
+            return w_bass + w_treble
         except Exception:
             pass
 

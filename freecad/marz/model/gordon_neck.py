@@ -189,7 +189,7 @@ def neck_profiles(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Neck
     rot = Rotation(Vector(0, 0, 1), direction)
     profile = CustomNeckProfile(doc=inst.doc if hasattr(inst, 'doc') else App.activeDocument())
     thicknessAt = neckd.thicknessAt
-    widthAt = neckd.widthAt
+    sideWidthsAt = fbd.sideWidthsAt
     transition_offset = 20.0 # TODO: Bind a parameter
 
     def profile_edge(i, l=None, point=None, h_delta=0.0):
@@ -198,9 +198,14 @@ def neck_profiles(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Neck
         h = thicknessAt(l) + h_delta
         if point is None:
             point = Vector(points[i].x, points[i].y, points[i].z)
-        w = widthAt(l)
+
+        w_bass, w_treble = sideWidthsAt(l)
+        w = w_bass + w_treble
         p = profile(w, h, wire=False)
         if p:
+            # Shift laterally to match asymmetric extension
+            shift = (w_treble - w_bass) / 2.0
+            p.translate(Vector(0, shift, 0))
             # Transform shape directly to ensure Tigl consumes correctly positioned curves
             p.transformShape(Placement(point, rot).toMatrix())
         return p
@@ -659,7 +664,14 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
                 try:
                     solid = Part.makeLoft(closed_profiles, True, False)
                 except Exception:
-                    solid = None
+                    # Last resort: Try lofting without the first profile (usually the headstock join)
+                    if len(closed_profiles) > 2:
+                        try:
+                            solid = Part.makeLoft(closed_profiles[1:], True, True)
+                        except Exception:
+                            solid = None
+                    else:
+                        solid = None
 
     # Cut the excess part of the heel
     try:
@@ -820,7 +832,13 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
             try:
                 neck_solid = Part.makeLoft(closed_profiles, True, False)
             except Exception:
-                neck_solid = None
+                if len(closed_profiles) > 2:
+                    try:
+                        neck_solid = Part.makeLoft(closed_profiles[1:], True, True)
+                    except Exception:
+                        neck_solid = None
+                else:
+                    neck_solid = None
 
     # Create Extra Chunk
     # Use dimensions at the end of the fretboard (physical wood end)
@@ -859,7 +877,8 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
 
     dist_at_end = abs(fend_v.x - nut_v.x)
 
-    width = fbd.widthAt(dist_at_end)
+    w_bass, w_treble = fbd.sideWidthsAt(dist_at_end)
+    width = w_bass + w_treble
     thickness = neckd.thicknessAt(dist_at_end)
 
     # Parameters
@@ -876,19 +895,19 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
         line_start_x = fbd.neckFrame.midLine.start.x
         d1 = abs(x1 - line_start_x)
         d2 = abs(x2 - line_start_x)
-        w1 = fbd.widthAt(d1)
-        w2 = fbd.widthAt(d2)
+        w1_bass, w1_treble = fbd.sideWidthsAt(d1)
+        w2_bass, w2_treble = fbd.sideWidthsAt(d2)
 
-        p1 = Vector(x1, -w1/2, z_bottom)
-        p2 = Vector(x1,  w1/2, z_bottom)
-        p3 = Vector(x1,  w1/2, z_top)
-        p4 = Vector(x1, -w1/2, z_top)
+        p1 = Vector(x1, -w1_bass, z_bottom)
+        p2 = Vector(x1,  w1_treble, z_bottom)
+        p3 = Vector(x1,  w1_treble, z_top)
+        p4 = Vector(x1, -w1_bass, z_top)
         wire1 = Part.makePolygon([p1, p2, p3, p4, p1])
 
-        p5 = Vector(x2, -w2/2, z_bottom)
-        p6 = Vector(x2,  w2/2, z_bottom)
-        p7 = Vector(x2,  w2/2, z_top)
-        p8 = Vector(x2, -w2/2, z_top)
+        p5 = Vector(x2, -w2_bass, z_bottom)
+        p6 = Vector(x2,  w2_treble, z_bottom)
+        p7 = Vector(x2,  w2_treble, z_top)
+        p8 = Vector(x2, -w2_bass, z_top)
         wire2 = Part.makePolygon([p5, p6, p7, p8, p5])
 
         return Part.makeLoft([Part.Wire(wire1), Part.Wire(wire2)], True)

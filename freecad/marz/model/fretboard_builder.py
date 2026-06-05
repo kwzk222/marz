@@ -71,7 +71,7 @@ def buildFretboardData(model) -> FretboardData:
 
     scaleFrame = calc_scale_frame()
     bassSideMargin = inst.fretboard.sideMargin + inst.stringSet.last / 2.0
-    trebSideMargin = inst.fretboard.sideMargin + inst.stringSet.first / 2.0 + getattr(inst.neck, 'trebleSideExtension', 0.0)
+    trebSideMargin = inst.fretboard.sideMargin + inst.stringSet.first / 2.0
 
     vtreb = scaleFrame.treble.cloneInverted()
     bassPerp = scaleFrame.bass.clone().rotate(math.radians(-90)).vector.setLength(bassSideMargin)
@@ -234,8 +234,11 @@ def buildFretboardData(model) -> FretboardData:
 
     nutFrame = calc_nut_frame()
 
-    # center frames
+    # center frames. Only in X direction to maintain longitudinal alignment.
+    # Do NOT shift in Y, as it would break the string centerline symmetry when
+    # asymmetric margins (like trebleSideExtension) are used.
     diff = frets[0].mid().sub(scaleFrame.nut.mid())
+    diff.y = 0
     scaleFrame = scaleFrame.translate(diff)
     virtStrFrame = virtStrFrame.translate(diff)
 
@@ -274,8 +277,7 @@ def buildFretboardData(model) -> FretboardData:
                         frets, bridgePos, neckFrame,
                         inst.fretboard.filletRadius, inst.neck.heelOffset, edo)
 
-    # Center only on X. Keep Y aligned with strings (0).
-    # This prevents the treble extension from shifting the bass side.
+    # Center ONLY on X. Keep Y aligned with strings (0).
     trans_vec = vxy(-neckFrame.nut.mid().x, 0)
     fbd = fbd.translate(trans_vec)
     return fbd
@@ -286,10 +288,6 @@ def buildFretboardData(model) -> FretboardData:
 
 @PureFunctionCache
 def fretboardSection(c, r, w, t, v):
-    # Ensure radius is large enough for width
-    if r < w/2.0:
-        r = w/2.0 + 0.1
-
     alpha = math.asin(max(-1.0, min(1.0, w/(2*r))))
     alpha_deg = (180.0 * alpha) / math.pi
     arc = Part.makeCircle(r, c, v, -alpha_deg, alpha_deg)
@@ -298,10 +296,6 @@ def fretboardSection(c, r, w, t, v):
             arc = Part.makeCircle(r, c, v, offset-alpha_deg, offset+alpha_deg)
             if arc.Vertexes[0].Point.z > 0:
                 break
-    # High reliability fallback
-    if arc.Vertexes[0].Point.z <= 0:
-        arc = Part.makeCircle(r, c + Vector(0,0,-r+t), v, 90-alpha_deg, 90+alpha_deg)
-
     a = arc.Vertexes[0].Point
     b = arc.Vertexes[1].Point
     h = r * math.cos(alpha) - r + t
@@ -429,7 +423,7 @@ def createFretboardShape(instrument_model, progress_listener=None):
         'FretboardFeature',
         fbd, inst.fretWire.tangWidth, inst.fretWire.tangDepth,
         inst.nut.depth, inst.fretboard.thickness, inst.fretboard.startRadius,
-        inst.fretboard.endRadius, inst.fretboard.fretNipping, inst.fretboard.filletRadius, getattr(inst.fretboard, 'length', 0.0)
+        inst.fretboard.endRadius, inst.fretboard.fretNipping, inst.fretboard.filletRadius
     )
     try: # --- DEBUG: inspect cached fretboard ---
         import FreeCAD
