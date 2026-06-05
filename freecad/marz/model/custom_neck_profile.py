@@ -127,8 +127,10 @@ class CustomNeckProfile:
             # Build a high-precision BSpline for a smooth profile surface
             bsp = Part.BSplineCurve()
             # Increase discretization for interpolation to ensure a smooth result from the input points
+            # Standard interpolation can sometimes create wobbles; use a high number of discretization points
+            # on the original SVG and then interpolate.
             bsp.interpolate(pts)
-            # Increase the degree if possible to make it even smoother
+            # Ensure high degree for maximum smoothness
             if bsp.Degree < 3:
                 bsp.increaseDegree(3)
             curve = bsp.toShape()

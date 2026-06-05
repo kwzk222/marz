@@ -99,7 +99,7 @@ def heel_profile(support_edge: Edge, inst: Instrument, height: float) -> Edge:
         if (p - pts[-1]).Length > 1e-5:
             pts.append(p)
 
-    # Resample to exactly 21 points to match parametric profiles
+    # Resample to exactly 31 points to match parametric profiles
     bsp = Part.BSplineCurve()
     bsp.interpolate(pts)
     edge = bsp.toShape()
@@ -275,6 +275,9 @@ def headstock_end_profile(inst: Instrument, fbd: FretboardData, neckd: NeckData)
     # We sort by Y so it always goes from Bass to Treble reliably.
     if a.y > i.y:
         all_pts = [i, h, g, f, e, d, c, b, a]
+    elif abs(a.y - i.y) < 1e-3 and a.x > i.x:
+        # Fallback for vertical edges: sort by X
+        all_pts = [i, h, g, f, e, d, c, b, a]
     else:
         all_pts = [a, b, c, d, e, f, g, h, i]
 
@@ -284,7 +287,7 @@ def headstock_end_profile(inst: Instrument, fbd: FretboardData, neckd: NeckData)
         if (p - pts[-1]).Length > 1e-5:
             pts.append(p)
 
-    # Resample to exactly 21 points to match parametric profiles
+    # Resample to exactly 31 points to match parametric profiles
     bsp = Part.BSplineCurve()
     bsp.interpolate(pts)
     edge = bsp.toShape()
@@ -504,7 +507,7 @@ def neck_blank(inst: Instrument, fbd: FretboardData, neckd: NeckData) -> Task[Ne
 
     # Headstock final profile
     headstock = headstock_end_profile(inst, fbd, neckd)
-    if inst.headStock.angle > 0.5:
+    if headstock is not None and inst.headStock.angle > 0.5:
         headstock = apply_headstock_angle(headstock, inst.headStock.angle, fbd)
 
     raw_profiles = (headstock, *profiles.edges, *heel.edges)
@@ -674,7 +677,7 @@ def neck_blank_extra_chunk_impl(inst: Instrument, fbd: FretboardData, neckd: Nec
 
     # Headstock final profile
     headstock = headstock_end_profile(inst, fbd, neckd)
-    if inst.headStock.angle > 0.5:
+    if headstock is not None and inst.headStock.angle > 0.5:
         headstock = apply_headstock_angle(headstock, inst.headStock.angle, fbd)
 
     raw_profiles = (headstock, *profiles.edges)

@@ -155,17 +155,21 @@ def make_body_parts(
     with traceTime('Building Body parts...', progress_listener):
         back, top, *heel = Task.join(jobs)
 
-    if top and len(heel) > 0 and heel[0] is not None:
+    if top and len(heel) > 0 and heel[0] is not None and not heel[0].isNull():
         with traceTime('Carving Neck pocket from top...', progress_listener):
             try:
-                top = top.cut(heel[0])
+                res = top.cut(heel[0])
+                if res and not res.isNull():
+                    top = res
             except Exception:
                 MarzLogger.warn("Could not carve neck pocket from body top")
 
-    if back and len(heel) > 0 and heel[0] is not None:
+    if back and len(heel) > 0 and heel[0] is not None and not heel[0].isNull():
         with traceTime('Carving Neck pocket from back...', progress_listener):
             try:
-                back = back.cut(heel[0])
+                res = back.cut(heel[0])
+                if res and not res.isNull():
+                    back = res
             except Exception:
                 MarzLogger.warn("Could not carve neck pocket from body back")
     
